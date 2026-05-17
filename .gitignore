@@ -1,0 +1,13 @@
+
+# Debug build artifacts
+*/Debug/
+*.pdb
+*.ilk
+*.exe
+*.obj
+*.idb
+*.log
+*.tlog/
+*.recipe
+qt/work.log
+
