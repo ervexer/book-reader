@@ -11,3 +11,5 @@
 *.recipe
 qt/work.log
 
+.vs/
+book project/
