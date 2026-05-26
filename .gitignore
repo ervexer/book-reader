@@ -9,6 +9,7 @@
 *.log
 *.tlog/
 *.recipe
+*.db
 qt/work.log
 
 .vs/
