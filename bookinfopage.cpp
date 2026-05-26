@@ -395,8 +395,6 @@ void BookInfoPage::loadChapters()
         delete it;
     }
 
-    Database::instance().ensureTextCache(currentBookId, nullptr);
-
     const auto chapters =
         Database::instance().listChapters(currentBookId, nullptr);
 

@@ -33,7 +33,7 @@ static QLabel* makePageLabel()
 }
 
 // Эвристика: сколько символов помещается на одну страницу
-static int charsPerPageFor(const ReaderSettings& s, int pageHeightPx, int pageWidthPx)
+/*static int charsPerPageFor(const ReaderSettings& s, int pageHeightPx, int pageWidthPx)
 {
     // Считаем реально по размеру шрифта и размеру области
     QFont font(s.fontFamily);
@@ -52,7 +52,7 @@ static int charsPerPageFor(const ReaderSettings& s, int pageHeightPx, int pageWi
 
     return linesPerPage * charsPerLine;
 }
-
+*/
 ReaderWindow::ReaderWindow(QWidget* parent)
     : QMainWindow(parent)
 {
@@ -197,7 +197,7 @@ ReaderWindow::ReaderWindow(QWidget* parent)
         overlayMenu->hide();
         if (currentBookId)
             Database::instance().upsertSettings(currentBookId, settings, nullptr);
-        rebuildPages();
+        //rebuildPages();
         updateUi();
         });
     omRoot->addStretch();
@@ -213,42 +213,57 @@ ReaderWindow::ReaderWindow(QWidget* parent)
 void ReaderWindow::openBook(int bookId, int chapterIndex)
 {
     currentBookId = bookId;
+
     Database::instance().openOrCreate();
-    Database::instance().getSettings(bookId, &settings, nullptr);
 
-    rebuildPages();
+    Database::instance().getSettings(
+        bookId,
+        &settings,
+        nullptr
+    );
 
-    DbBook book;
-    Database::instance().getBook(bookId, &book, nullptr);
+    pages.clear();
+    currentPage = 0;
 
+    // если открываем продолжить чтение
     if (chapterIndex < 0)
     {
-        goToPage(qMax(0, book.lastPage));
+        QString text;
+
+        if (Database::instance().getChapterText(
+            bookId,
+            0,
+            &text,
+            nullptr))
+        {
+            pages.push_back(text);
+        }
     }
     else
     {
-        const auto chapters = Database::instance().listChapters(bookId, nullptr);
-        int startOffset = 0;
-        for (const auto& ch : chapters)
-        {
-            if (ch.index == chapterIndex)
-            {
-                startOffset = ch.startOffset;
-                break;
-            }
-        }
+        QString text;
 
-        const int cpp = charsPerPageFor(settings, pageAreaHeight(), pageAreaWidth() / 2);
-        int page = cpp > 0 ? (startOffset / cpp) : 0;
-        if (page % 2 == 1) page--;
-        goToPage(page);
+        if (Database::instance().getChapterText(
+            bookId,
+            chapterIndex,
+            &text,
+            nullptr))
+        {
+            pages.push_back(text);
+        }
+        else
+        {
+            pages.push_back("Текст главы не найден");
+        }
     }
 
+    updateUi();
+
     showMaximized();
+
     raise();
     activateWindow();
 }
-
 // Высота области текста (между верхней и нижней панелями)
 int ReaderWindow::pageAreaHeight() const
 {
@@ -259,24 +274,57 @@ int ReaderWindow::pageAreaWidth() const
 {
     return qMax(200, width() - 80); // 80 = отступы по 40 с каждой стороны
 }
-
+/*
 void ReaderWindow::rebuildPages()
 {
     pages.clear();
 
-    QString text;
-    if (!Database::instance().getParsedText(currentBookId, &text, nullptr))
-        text = "(Не удалось загрузить текст книги)";
+    chapterPageCounts.clear();
 
-    const int cpp = charsPerPageFor(settings, pageAreaHeight(), pageAreaWidth() / 2);
-    for (int i = 0; i < text.size(); i += cpp)
-        pages.push_back(text.mid(i, cpp));
+    const auto chapters =
+        Database::instance().listChapters(
+            currentBookId,
+            nullptr
+        );
+
+    const int cpp =
+        charsPerPageFor(
+            settings,
+            pageAreaHeight(),
+            pageAreaWidth() / 2
+        );
+
+    for (const auto& ch : chapters)
+    {
+        int count = 0;
+
+        const QString text =
+            ch.content.isEmpty()
+            ? "Ошибка загрузки текста"
+            : ch.content;
+
+        for (int i = 0; i < text.size(); i += cpp)
+        {
+            pages.push_back(
+                text.mid(i, cpp)
+            );
+
+            count++;
+        }
+
+        chapterPageCounts[ch.index] = count;
+    }
 
     if (pages.isEmpty())
         pages.push_back("(Пусто)");
 
-    Database::instance().updateTotalPages(currentBookId, pages.size(), nullptr);
+    Database::instance().updateTotalPages(
+        currentBookId,
+        pages.size(),
+        nullptr
+    );
 }
+*/
 
 QString ReaderWindow::pageText(int pageIndex) const
 {
@@ -355,7 +403,7 @@ void ReaderWindow::resizeEvent(QResizeEvent* e)
         arr->setGeometry(0, navH / 2 - 20, navW, 40);
 
     updateUi();
-    rebuildPages(); // пересчитываем страницы при изменении размера окна
+    //rebuildPages(); // пересчитываем страницы при изменении размера окна
 }
 
 void ReaderWindow::wheelEvent(QWheelEvent* e)

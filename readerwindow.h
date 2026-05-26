@@ -45,6 +45,7 @@ private:
     int currentBookId = 0;
     int currentPage = 0; // zero-based "spread" index (2 pages per spread)
     QVector<QString> pages; // single pages, we show 2 at a time
+    QMap<int, int> chapterPageCounts;
 
     ReaderSettings settings;
 
