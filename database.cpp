@@ -1,7 +1,6 @@
 #include "database.h"
 
-#include "fb2metaparser.h"
-#include "fb2textparser.h"
+#include "fb2parser.h"
 
 #include <SQLite/sqlite3.h>
 
@@ -193,6 +192,7 @@ CREATE TABLE IF NOT EXISTS books (
     translator    TEXT NOT NULL DEFAULT '',
     annotation    TEXT NOT NULL DEFAULT '',
     genre         TEXT NOT NULL DEFAULT '',
+    cover         BLOB,
     total_pages   INTEGER NOT NULL DEFAULT 0,
     last_page     INTEGER NOT NULL DEFAULT 0,
     created_at    INTEGER NOT NULL,
@@ -223,11 +223,18 @@ CREATE TABLE IF NOT EXISTS reader_settings (
 
 )SQL";
 
-    return exec(schema, errorOut);
+    if (!exec(schema, errorOut))
+        return false;
+
+    // Миграция для уже существующих БД: добавить колонку cover, если её нет.
+    // Если колонка уже есть, SQLite вернёт ошибку "duplicate column" — игнорируем.
+    exec("ALTER TABLE books ADD COLUMN cover BLOB;", nullptr);
+
+    return true;
 }
 
-int Database::addOrUpdateBookFromMeta(
-    const Fb2Meta& meta,
+int Database::addBook(
+    const ParsedBook& book,
     QString* errorOut)
 {
     if (!openOrCreate())
@@ -238,16 +245,18 @@ int Database::addOrUpdateBookFromMeta(
         return 0;
     }
 
+    const Fb2Meta& meta = book.meta;
+
     sqlite3_stmt* stmt = nullptr;
 
     const char* sql =
         "INSERT INTO books("
-        "file_data,"
         "title,"
         "author,"
         "translator,"
         "annotation,"
         "genre,"
+        "cover,"
         "created_at"
         ") VALUES(?,?,?,?,?,?,?);";
 
@@ -264,67 +273,24 @@ int Database::addOrUpdateBookFromMeta(
         return 0;
     }
 
-    QByteArray titleUtf8 =
-        meta.title.toUtf8();
+    QByteArray titleUtf8 = meta.title.toUtf8();
+    QByteArray authorUtf8 = meta.author.toUtf8();
+    QByteArray translatorUtf8 = meta.translator.toUtf8();
+    QByteArray annotationUtf8 = meta.annotation.toUtf8();
+    QByteArray genreUtf8 = meta.genre.toUtf8();
 
-    QByteArray authorUtf8 =
-        meta.author.toUtf8();
+    sqlite3_bind_text(stmt, 1, titleUtf8.constData(), titleUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, authorUtf8.constData(), authorUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, translatorUtf8.constData(), translatorUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, annotationUtf8.constData(), annotationUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, genreUtf8.constData(), genreUtf8.size(), SQLITE_TRANSIENT);
 
-    QByteArray translatorUtf8 =
-        meta.translator.toUtf8();
+    if (meta.cover.isEmpty())
+        sqlite3_bind_null(stmt, 6);
+    else
+        sqlite3_bind_blob(stmt, 6, meta.cover.constData(), meta.cover.size(), SQLITE_TRANSIENT);
 
-    QByteArray annotationUtf8 =
-        meta.annotation.toUtf8();
-
-    QByteArray genreUtf8 =
-        meta.genre.toUtf8();
-
-    sqlite3_bind_blob(
-        stmt,
-        1,
-        fileUtf8.constData(),
-        fileUtf8.size(),
-        SQLITE_TRANSIENT);
-
-    sqlite3_bind_text(
-        stmt,
-        2,
-        titleUtf8.constData(),
-        titleUtf8.size(),
-        SQLITE_TRANSIENT);
-
-    sqlite3_bind_text(
-        stmt,
-        3,
-        authorUtf8.constData(),
-        authorUtf8.size(),
-        SQLITE_TRANSIENT);
-
-    sqlite3_bind_text(
-        stmt,
-        4,
-        translatorUtf8.constData(),
-        translatorUtf8.size(),
-        SQLITE_TRANSIENT);
-
-    sqlite3_bind_text(
-        stmt,
-        5,
-        annotationUtf8.constData(),
-        annotationUtf8.size(),
-        SQLITE_TRANSIENT);
-
-    sqlite3_bind_text(
-        stmt,
-        6,
-        genreUtf8.constData(),
-        genreUtf8.size(),
-        SQLITE_TRANSIENT);
-
-    sqlite3_bind_int64(
-        stmt,
-        7,
-        QDateTime::currentSecsSinceEpoch());
+    sqlite3_bind_int64(stmt, 7, QDateTime::currentSecsSinceEpoch());
 
     if (sqlite3_step(stmt) != SQLITE_DONE)
     {
@@ -337,40 +303,13 @@ int Database::addOrUpdateBookFromMeta(
 
     sqlite3_finalize(stmt);
 
-    int bookId =
-        (int)sqlite3_last_insert_rowid(db);
+    int bookId = (int)sqlite3_last_insert_rowid(db);
 
-    QString parseError;
-
-    QVector<ParsedChapter> chapters =
-        Fb2TextParser::parseFile(
-            bookId,
-            meta.rawFileData,
-            &parseError);
-
-    if (chapters.isEmpty())
-    {
-        if (errorOut)
-            *errorOut = parseError;
-
+    if (!replaceChapters(db, bookId, book.chapters, errorOut))
         return 0;
-    }
-
-    if (!replaceChapters(
-        db,
-        bookId,
-        chapters,
-        errorOut))
-    {
-        return 0;
-    }
 
     ReaderSettings settings;
-
-    upsertSettings(
-        bookId,
-        settings,
-        nullptr);
+    upsertSettings(bookId, settings, nullptr);
 
     return bookId;
 }
@@ -449,6 +388,86 @@ QVector<DbBook> Database::listBooks(
 
     sqlite3_finalize(stmt);
 
+    return result;
+}
+
+static QVector<DbBook> queryBooks(sqlite3* db, const char* sql, int limit, QString* errorOut)
+{
+    QVector<DbBook> result;
+
+    if (!db)
+        return result;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut)
+            *errorOut = db ? QString::fromUtf8(sqlite3_errmsg(db)) : QString("no db");
+        return result;
+    }
+
+    if (limit > 0)
+        sqlite3_bind_int(stmt, 1, limit);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        DbBook book;
+        book.id = sqlite3_column_int(stmt, 0);
+        book.title = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 1));
+        book.author = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 2));
+        book.totalPages = sqlite3_column_int(stmt, 3);
+        book.lastPage = sqlite3_column_int(stmt, 4);
+        result.push_back(book);
+    }
+
+    sqlite3_finalize(stmt);
+    return result;
+}
+
+QVector<DbBook> Database::listRecentlyAdded(int limit, QString* errorOut) const
+{
+    const char* sql = limit > 0
+        ? "SELECT id,title,author,total_pages,last_page FROM books ORDER BY created_at DESC LIMIT ?;"
+        : "SELECT id,title,author,total_pages,last_page FROM books ORDER BY created_at DESC;";
+    return queryBooks(db, sql, limit, errorOut);
+}
+
+QVector<DbBook> Database::listRecentlyRead(int limit, QString* errorOut) const
+{
+    const char* sql = limit > 0
+        ? "SELECT id,title,author,total_pages,last_page FROM books WHERE last_read_at > 0 ORDER BY last_read_at DESC LIMIT ?;"
+        : "SELECT id,title,author,total_pages,last_page FROM books WHERE last_read_at > 0 ORDER BY last_read_at DESC;";
+    return queryBooks(db, sql, limit, errorOut);
+}
+
+QByteArray Database::getBookCover(int bookId, QString* errorOut) const
+{
+    QByteArray result;
+
+    if (!db)
+        return result;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, "SELECT cover FROM books WHERE id=?;", -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut)
+            *errorOut = sqliteErr(db);
+        return result;
+    }
+
+    sqlite3_bind_int(stmt, 1, bookId);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        const void* data = sqlite3_column_blob(stmt, 0);
+        const int size = sqlite3_column_bytes(stmt, 0);
+        if (data && size > 0)
+            result = QByteArray(static_cast<const char*>(data), size);
+    }
+
+    sqlite3_finalize(stmt);
     return result;
 }
 

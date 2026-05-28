@@ -1,7 +1,7 @@
 #include "sidebar.h"
 #include "fonts.h"
 #include "database.h"
-#include "fb2metaparser.h"
+#include "fb2parser.h"
 
 #include <QVBoxLayout>
 #include <QPushButton>
@@ -59,16 +59,16 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
 
         if (!filePath.isEmpty())
         {
-            Fb2Meta meta;
+            ParsedBook book;
             QString err;
-            if (!Fb2MetaParser::parseFile(filePath, &meta, &err))
+            if (!Fb2Parser::parseFile(filePath, &book, &err))
             {
-                qWarning() << "Ошибка парсинга метаданных:" << err;
+                qWarning() << "Ошибка парсинга книги:" << err;
                 QMessageBox::warning(this, "Не удалось добавить книгу", err);
                 return;
             }
 
-            const int bookId = Database::instance().addOrUpdateBookFromMeta(meta, &err);
+            const int bookId = Database::instance().addBook(book, &err);
             if (!bookId)
             {
                 qWarning() << "Ошибка добавления в БД:" << err;

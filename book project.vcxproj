@@ -69,6 +69,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4996</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -83,6 +84,7 @@
       <ConformanceMode>true</ConformanceMode>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <DisableSpecificWarnings>4996</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -95,9 +97,7 @@
     <ClCompile Include="bookinfopage.cpp" />
     <ClCompile Include="create_db.cpp" />
     <ClCompile Include="database.cpp" />
-    <ClCompile Include="fb2metaparser.cpp" />
     <ClCompile Include="fb2parser.cpp" />
-    <ClCompile Include="fb2textparser.cpp" />
     <ClCompile Include="fonts.cpp" />
     <ClCompile Include="homepage.cpp" />
     <ClCompile Include="librarypage.cpp" />
@@ -121,9 +121,7 @@
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookinfopage.h" />
-    <ClInclude Include="fb2metaparser.h" />
     <ClInclude Include="fb2parser.h" />
-    <ClInclude Include="fb2textparser.h" />
     <ClInclude Include="fonts.h" />
     <QtMoc Include="readerwindow.h" />
     <QtMoc Include="librarypage.h" />

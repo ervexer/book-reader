@@ -4,9 +4,9 @@
 #include <QVector>
 #include <QByteArray>
 
-struct sqlite3;
+#include "fb2parser.h"
 
-struct Fb2Meta;
+struct sqlite3;
 
 struct DbBook
 {
@@ -53,11 +53,23 @@ public:
     bool ensureSchema(
         QString* errorOut = nullptr);
 
-    int addOrUpdateBookFromMeta(
-        const Fb2Meta& meta,
+    int addBook(
+        const ParsedBook& book,
         QString* errorOut = nullptr);
 
     QVector<DbBook> listBooks(
+        QString* errorOut = nullptr) const;
+
+    QVector<DbBook> listRecentlyAdded(
+        int limit = 0,
+        QString* errorOut = nullptr) const;
+
+    QVector<DbBook> listRecentlyRead(
+        int limit = 0,
+        QString* errorOut = nullptr) const;
+
+    QByteArray getBookCover(
+        int bookId,
         QString* errorOut = nullptr) const;
 
     QVector<DbChapter> listChapters(

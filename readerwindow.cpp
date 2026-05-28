@@ -16,20 +16,41 @@
 #include <QScrollArea>
 #include <QFontMetrics>
 #include <QCloseEvent>
+#include <QPainter>
+#include <QPaintEvent>
+#include <QTextDocument>
+#include <QTextCursor>
+#include <QTextBlock>
+#include <QTextBlockFormat>
+#include <QAbstractTextDocumentLayout>
 
-// Создаёт лейбл для страницы текста
-static QLabel* makePageLabel()
+void PageView::paintEvent(QPaintEvent*)
 {
-    auto* l = new QLabel;
-    l->setWordWrap(true);
-    l->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    l->setStyleSheet("color:#d7d0c8; font-family:'Noto Serif';");
-    l->setTextFormat(Qt::PlainText);
+    if (!m_doc)
+        return;
 
-    // Критично: запрещаем лейблу расширяться вертикально
-    // иначе он выталкивает нижнее меню
-    l->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
-    return l;
+    const QSizeF ps = m_doc->pageSize();
+    if (ps.height() <= 0)
+        return;
+
+    QPainter p(this);
+
+    // Сдвигаем документ так, чтобы нужная страница оказалась в начале виджета.
+    p.translate(0, -m_pageIndex * ps.height());
+
+    QAbstractTextDocumentLayout::PaintContext ctx;
+    ctx.palette.setColor(QPalette::Text, QColor("#d7d0c8"));
+    ctx.clip = QRectF(0, m_pageIndex * ps.height(), ps.width(), ps.height());
+
+    m_doc->documentLayout()->draw(&p, ctx);
+}
+
+// Создаёт виджет для отрисовки одной страницы текста
+static PageView* makePageView()
+{
+    auto* v = new PageView;
+    v->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
+    return v;
 }
 
 // Эвристика: сколько символов помещается на одну страницу
@@ -134,12 +155,17 @@ ReaderWindow::ReaderWindow(QWidget* parent)
     bottom->addWidget(progressBg);
 
     // ===== ОБЛАСТЬ ТЕКСТА (между верхней и нижней панелью) =====
-    // Два лейбла для левой и правой страниц
-    leftPageLbl = makePageLabel();
-    leftPageLbl->setParent(central);
+    // Общий документ книги + два виджета для левой и правой страниц
+    doc = new QTextDocument(this);
+    doc->setDocumentMargin(4);
 
-    rightPageLbl = makePageLabel();
+    leftPageLbl = makePageView();
+    leftPageLbl->setParent(central);
+    leftPageLbl->setDocument(doc);
+
+    rightPageLbl = makePageView();
     rightPageLbl->setParent(central);
+    rightPageLbl->setDocument(doc);
 
     // ===== НАВИГАЦИЯ (стрелки по бокам) =====
     leftNav = new QFrame(central);
@@ -197,7 +223,8 @@ ReaderWindow::ReaderWindow(QWidget* parent)
         overlayMenu->hide();
         if (currentBookId)
             Database::instance().upsertSettings(currentBookId, settings, nullptr);
-        //rebuildPages();
+        applyFormatting();
+        rebuildPages();
         updateUi();
         });
     omRoot->addStretch();
@@ -222,47 +249,104 @@ void ReaderWindow::openBook(int bookId, int chapterIndex)
         nullptr
     );
 
-    pages.clear();
     currentPage = 0;
 
-    // если открываем продолжить чтение
-    if (chapterIndex < 0)
-    {
-        QString text;
+    // Загружаем книгу целиком: все главы в один документ, пагинация сквозная.
+    const auto chapters = Database::instance().listChapters(bookId, nullptr);
+    buildDocument(chapters);
+    applyFormatting();
 
-        if (Database::instance().getChapterText(
-            bookId,
-            0,
-            &text,
-            nullptr))
-        {
-            pages.push_back(text);
-        }
-    }
-    else
-    {
-        QString text;
+    requestedChapter = chapterIndex;
+    hasPendingStart = true;
 
-        if (Database::instance().getChapterText(
-            bookId,
-            chapterIndex,
-            &text,
-            nullptr))
-        {
-            pages.push_back(text);
-        }
-        else
-        {
-            pages.push_back("Текст главы не найден");
-        }
-    }
-
+    rebuildPages();
     updateUi();
 
     showMaximized();
 
+    // Если окно уже было развёрнуто, resizeEvent не сработает — доустанавливаем здесь.
+    if (hasPendingStart)
+    {
+        rebuildPages();
+        resolvePendingStart();
+        updateUi();
+    }
+
     raise();
     activateWindow();
+}
+
+// Собирает все главы книги в один QTextDocument и запоминает позицию начала каждой.
+void ReaderWindow::buildDocument(const QVector<DbChapter>& chapters)
+{
+    chapterStartPos.clear();
+    doc->clear();
+
+    if (chapters.isEmpty())
+    {
+        doc->setHtml("<p>Текст книги не найден</p>");
+        chapterStartPos.append(0);
+        return;
+    }
+
+    QTextCursor cur(doc);
+    for (int i = 0; i < chapters.size(); ++i)
+    {
+        if (i > 0)
+            cur.insertBlock();
+
+        chapterStartPos.append(cur.position());
+
+        const QString title = chapters[i].title.trimmed();
+        if (!title.isEmpty())
+        {
+            cur.insertHtml("<h3>" + title.toHtmlEscaped() + "</h3>");
+            cur.insertBlock();
+        }
+
+        cur.insertHtml(chapters[i].content);
+    }
+}
+
+// Номер страницы, на которой начинается указанная глава.
+int ReaderWindow::pageForChapter(int chapterIndex) const
+{
+    if (chapterIndex < 0 || chapterIndex >= chapterStartPos.size())
+        return 0;
+
+    const qreal ph = doc->pageSize().height();
+    if (ph <= 0)
+        return 0;
+
+    QTextCursor c(doc);
+    c.setPosition(chapterStartPos[chapterIndex]);
+    const QRectF r = doc->documentLayout()->blockBoundingRect(c.block());
+
+    return int(r.top() / ph);
+}
+
+// Устанавливает стартовую страницу: либо продолжение (последняя), либо начало главы.
+void ReaderWindow::resolvePendingStart()
+{
+    int startPage = 0;
+
+    if (requestedChapter < 0)
+    {
+        DbBook b;
+        if (Database::instance().getBook(currentBookId, &b, nullptr))
+            startPage = b.lastPage;
+    }
+    else
+    {
+        startPage = pageForChapter(requestedChapter);
+    }
+
+    // Левая страница разворота всегда чётная.
+    if (startPage % 2 != 0)
+        startPage -= 1;
+
+    currentPage = qBound(0, startPage, qMax(0, pageCount - 1));
+    hasPendingStart = false;
 }
 // Высота области текста (между верхней и нижней панелями)
 int ReaderWindow::pageAreaHeight() const
@@ -274,68 +358,52 @@ int ReaderWindow::pageAreaWidth() const
 {
     return qMax(200, width() - 80); // 80 = отступы по 40 с каждой стороны
 }
-/*
-void ReaderWindow::rebuildPages()
+// Применяет шрифт, межстрочный интервал и выравнивание из настроек к документу
+void ReaderWindow::applyFormatting()
 {
-    pages.clear();
+    QFont f(settings.fontFamily);
+    f.setPointSize(settings.fontSize);
+    doc->setDefaultFont(f);
 
-    chapterPageCounts.clear();
-
-    const auto chapters =
-        Database::instance().listChapters(
-            currentBookId,
-            nullptr
-        );
-
-    const int cpp =
-        charsPerPageFor(
-            settings,
-            pageAreaHeight(),
-            pageAreaWidth() / 2
-        );
-
-    for (const auto& ch : chapters)
+    Qt::Alignment alignment = Qt::AlignLeft;
+    switch (settings.align)
     {
-        int count = 0;
-
-        const QString text =
-            ch.content.isEmpty()
-            ? "Ошибка загрузки текста"
-            : ch.content;
-
-        for (int i = 0; i < text.size(); i += cpp)
-        {
-            pages.push_back(
-                text.mid(i, cpp)
-            );
-
-            count++;
-        }
-
-        chapterPageCounts[ch.index] = count;
+    case 1: alignment = Qt::AlignHCenter; break;
+    case 2: alignment = Qt::AlignRight; break;
+    case 3: alignment = Qt::AlignJustify; break;
+    default: alignment = Qt::AlignLeft; break;
     }
 
-    if (pages.isEmpty())
-        pages.push_back("(Пусто)");
+    QTextCursor cursor(doc);
+    cursor.select(QTextCursor::Document);
 
-    Database::instance().updateTotalPages(
-        currentBookId,
-        pages.size(),
-        nullptr
-    );
+    QTextBlockFormat bf;
+    bf.setLineHeight(settings.lineHeight * 100.0, QTextBlockFormat::ProportionalHeight);
+    bf.setAlignment(alignment);
+    cursor.mergeBlockFormat(bf);
 }
-*/
 
-QString ReaderWindow::pageText(int pageIndex) const
+// Пересчитывает постраничную разметку под текущий размер страницы
+void ReaderWindow::rebuildPages()
 {
-    if (pageIndex < 0 || pageIndex >= pages.size())
-        return "";
-    return pages[pageIndex];
+    const int padSide = 40;
+    const int pageW = qMax(50, (pageAreaWidth() - 40) / 2); // 40 = зазор между страницами
+    const int pageH = qMax(50, pageAreaHeight());
+    Q_UNUSED(padSide);
+
+    doc->setPageSize(QSizeF(pageW, pageH));
+
+    pageCount = qMax(1, doc->documentLayout()->pageCount());
+
+    const int maxPage = qMax(0, pageCount - 1);
+    currentPage = qBound(0, currentPage, maxPage);
+
+    Database::instance().updateTotalPages(currentBookId, pageCount, nullptr);
 }
 
 void ReaderWindow::goToPage(int pageIndex)
 {
-    const int maxPage = qMax(0, pages.size() - 1);
+    const int maxPage = qMax(0, pageCount - 1);
     currentPage = qBound(0, pageIndex, maxPage);
 
     updateUi();
@@ -343,16 +411,11 @@ void ReaderWindow::goToPage(int pageIndex)
 
 void ReaderWindow::updateUi()
 {
-    QFont f(settings.fontFamily);
-    f.setPointSize(settings.fontSize);
-
-    leftPageLbl->setFont(f);
-    rightPageLbl->setFont(f);
-    leftPageLbl->setText(pageText(currentPage));
-    rightPageLbl->setText(pageText(currentPage + 1));
+    leftPageLbl->setPageIndex(currentPage);
+    rightPageLbl->setPageIndex(currentPage + 1);
 
     // Прогресс
-    const int total = pages.size();
+    const int total = pageCount;
     const int shown = qMin(currentPage + 2, total);
     progressLbl->setText(QString("%1 / %2").arg(shown).arg(total));
 
@@ -402,8 +465,10 @@ void ReaderWindow::resizeEvent(QResizeEvent* e)
     if (auto* arr = rightNav->findChild<QLabel*>())
         arr->setGeometry(0, navH / 2 - 20, navW, 40);
 
+    rebuildPages(); // пересчитываем страницы при изменении размера окна
+    if (hasPendingStart)
+        resolvePendingStart();
     updateUi();
-    //rebuildPages(); // пересчитываем страницы при изменении размера окна
 }
 
 void ReaderWindow::wheelEvent(QWheelEvent* e)

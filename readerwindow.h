@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QWidget>
 #include <QVector>
 
 #include "database.h"
@@ -12,6 +13,24 @@ class QScrollArea;
 class QWheelEvent;
 class QMouseEvent;
 class QResizeEvent;
+class QTextDocument;
+
+// Рисует одну страницу общего QTextDocument (постраничная разметка Qt).
+class PageView : public QWidget
+{
+public:
+    explicit PageView(QWidget* parent = nullptr) : QWidget(parent) {}
+
+    void setDocument(QTextDocument* doc) { m_doc = doc; update(); }
+    void setPageIndex(int index) { m_pageIndex = index; update(); }
+
+protected:
+    void paintEvent(QPaintEvent* e) override;
+
+private:
+    QTextDocument* m_doc = nullptr;
+    int m_pageIndex = 0;
+};
 
 class ReaderWindow : public QMainWindow
 {
@@ -32,20 +51,26 @@ signals:
     void readingProgressChanged(int bookId);
 private:
     void rebuildPages();
+    void applyFormatting();
     void updateUi();
     void goToPage(int pageIndex);
+    void buildDocument(const QVector<DbChapter>& chapters);
+    int pageForChapter(int chapterIndex) const;
+    void resolvePendingStart();
     void closeEvent(QCloseEvent* event) override;
-
-    QString pageText(int pageIndex) const;
 
     int pageAreaHeight() const;
     int pageAreaWidth() const;
 
 private:
     int currentBookId = 0;
-    int currentPage = 0; // zero-based "spread" index (2 pages per spread)
-    QVector<QString> pages; // single pages, we show 2 at a time
-    QMap<int, int> chapterPageCounts;
+    int currentPage = 0; // zero-based single-page index (showing 2 at a time)
+    int pageCount = 0;
+
+    QTextDocument* doc = nullptr;
+    QVector<int> chapterStartPos; // позиция начала каждой главы в общем документе
+    int requestedChapter = 0;     // глава/режим, запрошенный при открытии (-1 = продолжить)
+    bool hasPendingStart = false; // нужно ли ещё установить стартовую страницу
 
     ReaderSettings settings;
 
@@ -55,8 +80,8 @@ private:
     QPushButton* minBtn = nullptr;
     QPushButton* maxBtn = nullptr;
 
-    QLabel* leftPageLbl = nullptr;
-    QLabel* rightPageLbl = nullptr;
+    PageView* leftPageLbl = nullptr;
+    PageView* rightPageLbl = nullptr;
 
     QFrame* leftNav = nullptr;
     QFrame* rightNav = nullptr;

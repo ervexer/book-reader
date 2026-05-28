@@ -4,6 +4,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QStringList>
 #include <QXmlStreamReader>
 
@@ -23,6 +24,39 @@ static QString joinName(const QString& first, const QString& middle, const QStri
     return parts.join(' ');
 }
 
+// Экранируем текст книги перед вставкой в HTML, иначе символы '<', '>', '&'
+// сломают разметку (и потенциально позволят инъекцию из содержимого файла).
+static QString escapeHtml(const QString& text)
+{
+    QString out = text;
+    out.replace('&', "&amp;");
+    out.replace('<', "&lt;");
+    out.replace('>', "&gt;");
+    return out;
+}
+
+// FB2 хранит ссылку на картинку в атрибуте xlink:href / l:href.
+// При включённой обработке пространств имён локальное имя атрибута — "href".
+static QString hrefAttr(const QXmlStreamReader& xml)
+{
+    const auto attrs = xml.attributes();
+    for (const auto& a : attrs)
+    {
+        if (a.name() == QLatin1String("href"))
+            return a.value().toString();
+    }
+    return QString();
+}
+
+// Тип текущего HTML-блока, который мы собираем внутри главы.
+enum class Block
+{
+    None,
+    Paragraph, // <p>
+    Subtitle,  // <subtitle>
+    Verse      // <v>
+};
+
 bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* errorOut)
 {
     if (!out)
@@ -40,8 +74,7 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
 
     QXmlStreamReader xml(&file);
 
-    // метаданные
-
+    // ===== метаданные =====
     bool inTitleInfo = false;
 
     bool inAuthor = false;
@@ -53,45 +86,37 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
 
     bool inAnnotation = false;
 
-    QString currentText;
+    QString currentText; // текст внутри простого тега (мета / заголовок / binary)
 
-    QString authorFirst;
-    QString authorLast;
-    QString authorMiddle;
-
-    QString translatorFirst;
-    QString translatorLast;
-    QString translatorMiddle;
-
+    QString authorFirst, authorLast, authorMiddle;
+    QString translatorFirst, translatorLast, translatorMiddle;
     QString annotationText;
 
-    // текст
+    // ===== обложка / картинки =====
+    bool inCoverpage = false;
+    bool inBinary = false;
+    QString binaryId;
+    QString coverRef;
+    QHash<QString, QByteArray> binaries;
 
+    // ===== текст =====
     bool inBody = false;
     bool inSection = false;
     bool inTitle = false;
-    bool inParagraph = false;
+
+    Block block = Block::None; // текущий собираемый блок текста главы
+    QString blockHtml;         // накопленный inline-HTML текущего блока
+    bool blockHasText = false; // были ли непустые символы в блоке
 
     QString titleText;
 
     ParsedChapter* currentChapter = nullptr;
-
     int chapterIndex = 0;
 
-    auto appendParagraph = [&](const QString& text)
+    auto addBlock = [&](const QString& html)
         {
-            if (!currentChapter)
-                return;
-
-            QString trimmed = text.trimmed();
-
-            if (trimmed.isEmpty())
-                return;
-
-            if (!currentChapter->text.isEmpty())
-                currentChapter->text += "\n\n";
-
-            currentChapter->text += trimmed;
+            if (currentChapter)
+                currentChapter->text += html;
         };
 
     while (!xml.atEnd())
@@ -100,27 +125,26 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
 
         if (xml.isStartElement())
         {
-            QString name = xml.name().toString();
+            const QString name = xml.name().toString();
 
             if (name == "title-info")
-            {
                 inTitleInfo = true;
-            }
 
             if (inTitleInfo)
             {
-                if (name == "book-title")
+                if (name == "book-title" || name == "genre"
+                    || name == "first-name" || name == "last-name"
+                    || name == "middle-name")
                 {
                     currentText.clear();
-                }
-                else if (name == "genre")
-                {
-                    currentText.clear();
+
+                    if (name == "first-name") inFirstName = true;
+                    else if (name == "last-name") inLastName = true;
+                    else if (name == "middle-name") inMiddleName = true;
                 }
                 else if (name == "author")
                 {
                     inAuthor = true;
-
                     authorFirst.clear();
                     authorLast.clear();
                     authorMiddle.clear();
@@ -128,25 +152,9 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
                 else if (name == "translator")
                 {
                     inTranslator = true;
-
                     translatorFirst.clear();
                     translatorLast.clear();
                     translatorMiddle.clear();
-                }
-                else if (name == "first-name")
-                {
-                    inFirstName = true;
-                    currentText.clear();
-                }
-                else if (name == "last-name")
-                {
-                    inLastName = true;
-                    currentText.clear();
-                }
-                else if (name == "middle-name")
-                {
-                    inMiddleName = true;
-                    currentText.clear();
                 }
                 else if (name == "annotation")
                 {
@@ -155,6 +163,24 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
                 }
             }
 
+            // ----- обложка -----
+            if (name == "coverpage")
+            {
+                inCoverpage = true;
+            }
+            else if (name == "image")
+            {
+                if (inCoverpage && coverRef.isEmpty())
+                    coverRef = hrefAttr(xml);
+            }
+            else if (name == "binary")
+            {
+                inBinary = true;
+                binaryId = xml.attributes().value("id").toString();
+                currentText.clear();
+            }
+
+            // ----- текст книги -----
             if (name == "body")
             {
                 inBody = true;
@@ -164,17 +190,11 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
                 inSection = true;
 
                 ParsedChapter chapter;
-
                 chapter.index = chapterIndex++;
-
-                chapter.title =
-                    QString("Глава %1")
-                    .arg(chapter.index + 1);
+                chapter.title = QString("Глава %1").arg(chapter.index + 1);
 
                 out->chapters.append(chapter);
-
-                currentChapter =
-                    &out->chapters.last();
+                currentChapter = &out->chapters.last();
             }
             else if (inSection && name == "title")
             {
@@ -183,19 +203,57 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
             }
             else if (name == "p")
             {
-                inParagraph = true;
                 currentText.clear();
+
+                if (!inTitle && !inAnnotation && currentChapter)
+                {
+                    block = Block::Paragraph;
+                    blockHtml.clear();
+                    blockHasText = false;
+                }
+            }
+            else if (name == "subtitle" && currentChapter && !inTitle)
+            {
+                block = Block::Subtitle;
+                blockHtml.clear();
+                blockHasText = false;
+            }
+            else if (name == "v" && currentChapter)
+            {
+                block = Block::Verse;
+                blockHtml.clear();
+                blockHasText = false;
+            }
+            else if (name == "empty-line" && currentChapter)
+            {
+                addBlock("<p>&nbsp;</p>");
+            }
+            else if (name == "emphasis")
+            {
+                if (block != Block::None) blockHtml += "<i>";
+            }
+            else if (name == "strong")
+            {
+                if (block != Block::None) blockHtml += "<b>";
             }
         }
 
         else if (xml.isCharacters() && !xml.isWhitespace())
         {
-            currentText += xml.text().toString();
+            const QString t = xml.text().toString();
+            currentText += t;
+
+            if (block != Block::None)
+            {
+                blockHtml += escapeHtml(t);
+                if (!t.trimmed().isEmpty())
+                    blockHasText = true;
+            }
         }
 
         else if (xml.isEndElement())
         {
-            QString name = xml.name().toString();
+            const QString name = xml.name().toString();
 
             if (name == "title-info")
             {
@@ -203,105 +261,111 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
             }
             else if (name == "book-title")
             {
-                out->meta.title =
-                    currentText.trimmed();
+                out->meta.title = currentText.trimmed();
             }
             else if (name == "genre")
             {
-                out->meta.genre =
-                    currentText.trimmed();
+                out->meta.genre = currentText.trimmed();
             }
             else if (name == "first-name")
             {
                 inFirstName = false;
-
-                if (inAuthor)
-                    authorFirst = currentText.trimmed();
-                else if (inTranslator)
-                    translatorFirst = currentText.trimmed();
+                if (inAuthor) authorFirst = currentText.trimmed();
+                else if (inTranslator) translatorFirst = currentText.trimmed();
             }
             else if (name == "last-name")
             {
                 inLastName = false;
-
-                if (inAuthor)
-                    authorLast = currentText.trimmed();
-                else if (inTranslator)
-                    translatorLast = currentText.trimmed();
+                if (inAuthor) authorLast = currentText.trimmed();
+                else if (inTranslator) translatorLast = currentText.trimmed();
             }
             else if (name == "middle-name")
             {
                 inMiddleName = false;
-
-                if (inAuthor)
-                    authorMiddle = currentText.trimmed();
-                else if (inTranslator)
-                    translatorMiddle = currentText.trimmed();
+                if (inAuthor) authorMiddle = currentText.trimmed();
+                else if (inTranslator) translatorMiddle = currentText.trimmed();
             }
             else if (name == "author")
             {
                 inAuthor = false;
-
                 if (out->meta.author.isEmpty())
-                {
-                    out->meta.author =
-                        joinName(
-                            authorFirst,
-                            authorMiddle,
-                            authorLast
-                        );
-                }
+                    out->meta.author = joinName(authorFirst, authorMiddle, authorLast);
             }
             else if (name == "translator")
             {
                 inTranslator = false;
-
                 if (out->meta.translator.isEmpty())
-                {
-                    out->meta.translator =
-                        joinName(
-                            translatorFirst,
-                            translatorMiddle,
-                            translatorLast
-                        );
-                }
+                    out->meta.translator = joinName(translatorFirst, translatorMiddle, translatorLast);
             }
             else if (name == "annotation")
             {
                 inAnnotation = false;
-
-                out->meta.annotation =
-                    annotationText.trimmed();
+                out->meta.annotation = annotationText.trimmed();
             }
-
-            else if (name == "p" && inParagraph)
+            else if (name == "coverpage")
             {
-                inParagraph = false;
-
+                inCoverpage = false;
+            }
+            else if (name == "binary")
+            {
+                inBinary = false;
+                if (!binaryId.isEmpty())
+                {
+                    const QByteArray decoded =
+                        QByteArray::fromBase64(currentText.toUtf8());
+                    if (!decoded.isEmpty())
+                        binaries.insert(binaryId, decoded);
+                }
+            }
+            else if (name == "emphasis")
+            {
+                if (block != Block::None) blockHtml += "</i>";
+            }
+            else if (name == "strong")
+            {
+                if (block != Block::None) blockHtml += "</b>";
+            }
+            else if (name == "p")
+            {
                 if (inAnnotation)
                 {
                     if (!annotationText.isEmpty())
                         annotationText += "\n";
-
                     annotationText += currentText.trimmed();
                 }
                 else if (inTitle)
                 {
                     titleText = currentText.trimmed();
                 }
-                else
+                else if (block == Block::Paragraph)
                 {
-                    appendParagraph(currentText);
+                    if (blockHasText)
+                        addBlock("<p>" + blockHtml + "</p>");
+                    block = Block::None;
+                }
+            }
+            else if (name == "subtitle")
+            {
+                if (block == Block::Subtitle)
+                {
+                    if (blockHasText)
+                        addBlock("<p align=\"center\"><b>" + blockHtml + "</b></p>");
+                    block = Block::None;
+                }
+            }
+            else if (name == "v")
+            {
+                if (block == Block::Verse)
+                {
+                    addBlock("<p>" + blockHtml + "</p>");
+                    block = Block::None;
                 }
             }
             else if (name == "title")
             {
                 inTitle = false;
-
                 if (currentChapter && !titleText.isEmpty())
-                {
                     currentChapter->title = titleText;
-                }
             }
             else if (name == "section")
             {
@@ -313,42 +377,51 @@ bool Fb2Parser::parseFile(const QString& filePath, ParsedBook* out, QString* err
                 inBody = false;
             }
 
-            currentText.clear();
+            // Не сбрасываем currentText при закрытии inline-тегов внутри абзаца,
+            // иначе потеряем текст вокруг <emphasis>/<strong>.
+            if (name != "emphasis" && name != "strong")
+                currentText.clear();
         }
     }
 
     if (xml.hasError())
     {
         if (errorOut)
-        {
-            *errorOut =
-                "Ошибка XML: "
-                + xml.errorString();
-        }
+            *errorOut = "Ошибка XML: " + xml.errorString();
 
         return false;
     }
 
-    if (out->meta.title.isEmpty())
+    // Обложка: id из coverRef (убираем ведущий '#')
+    if (!coverRef.isEmpty())
     {
-        out->meta.title =
-            QFileInfo(filePath).baseName();
+        const QString coverId =
+            coverRef.startsWith('#') ? coverRef.mid(1) : coverRef;
+        out->meta.cover = binaries.value(coverId);
     }
 
+    if (out->meta.title.isEmpty())
+        out->meta.title = QFileInfo(filePath).baseName();
+
     if (out->meta.author.isEmpty())
+        out->meta.author = "Неизвестный автор";
+
+    // Вложенные <section> создают главу-обёртку без собственного текста.
+    // Удаляем такие пустые главы и перенумеровываем оставшиеся.
+    for (int i = out->chapters.size() - 1; i >= 0; --i)
     {
-        out->meta.author =
-            "Неизвестный автор";
+        if (out->chapters[i].text.trimmed().isEmpty())
+            out->chapters.removeAt(i);
     }
+    for (int i = 0; i < out->chapters.size(); ++i)
+        out->chapters[i].index = i;
 
     if (out->chapters.isEmpty())
     {
         ParsedChapter chapter;
-
         chapter.index = 0;
         chapter.title = "Без названия";
-        chapter.text = "Текст книги не найден";
-
+        chapter.text = "<p>Текст книги не найден</p>";
         out->chapters.append(chapter);
     }
 

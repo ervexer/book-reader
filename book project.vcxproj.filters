@@ -64,10 +64,7 @@
     <ClCompile Include="readerwindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fb2metaparser.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fb2textparser.cpp">
+    <ClCompile Include="fb2parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -101,10 +98,7 @@
     <ClInclude Include="database.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="fb2metaparser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fb2textparser.h">
+    <ClInclude Include="fb2parser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
