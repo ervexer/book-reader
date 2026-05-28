@@ -16,11 +16,7 @@ static QString sqliteErr(sqlite3* db)
     return QString::fromUtf8(msg);
 }
 
-static bool replaceChapters(
-    sqlite3* db,
-    int bookId,
-    const QVector<ParsedChapter>& chapters,
-    QString* errorOut)
+static bool replaceChapters(sqlite3* db, int bookId, const QVector<ParsedChapter>& chapters, QString* errorOut)
 {
     sqlite3_stmt* deleteStmt = nullptr;
 
@@ -192,7 +188,6 @@ bool Database::ensureSchema(
 
 CREATE TABLE IF NOT EXISTS books (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_data     BLOB NOT NULL,
     title         TEXT NOT NULL,
     author        TEXT NOT NULL,
     translator    TEXT NOT NULL DEFAULT '',
@@ -268,9 +263,6 @@ int Database::addOrUpdateBookFromMeta(
 
         return 0;
     }
-
-    QByteArray fileUtf8 =
-        meta.rawFileData;
 
     QByteArray titleUtf8 =
         meta.title.toUtf8();

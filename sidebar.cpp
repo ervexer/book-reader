@@ -51,7 +51,8 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
         "QPushButton:hover{background:#ffa733;}"
     );
 
-    connect(addBtn, &QPushButton::clicked, this, [=]() {
+    connect(addBtn, &QPushButton::clicked, this, [=]()
+    {
         QString filePath = QFileDialog::getOpenFileName(
             this, "Выберите файл книги", "", "Книги (*.fb2)"
         );
@@ -77,7 +78,7 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
 
             emit bookAdded(bookId);
         }
-        });
+    });
 
     layoutPtr->addWidget(addBtn);
     layoutPtr->addStretch();

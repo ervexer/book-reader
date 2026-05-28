@@ -96,6 +96,7 @@
     <ClCompile Include="create_db.cpp" />
     <ClCompile Include="database.cpp" />
     <ClCompile Include="fb2metaparser.cpp" />
+    <ClCompile Include="fb2parser.cpp" />
     <ClCompile Include="fb2textparser.cpp" />
     <ClCompile Include="fonts.cpp" />
     <ClCompile Include="homepage.cpp" />
@@ -121,6 +122,7 @@
   <ItemGroup>
     <QtMoc Include="bookinfopage.h" />
     <ClInclude Include="fb2metaparser.h" />
+    <ClInclude Include="fb2parser.h" />
     <ClInclude Include="fb2textparser.h" />
     <ClInclude Include="fonts.h" />
     <QtMoc Include="readerwindow.h" />
