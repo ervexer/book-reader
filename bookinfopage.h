@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QVector>
 
 class QLabel;
 class QPushButton;
@@ -21,8 +22,8 @@ public:
     void updateProgress();
 
 signals:
-    void backRequested();
     void openReaderRequested(int bookId, int startChapterIndex);
+    void openReaderAtPageRequested(int bookId, int page);
 
 private slots:
     void onContinueButtonClicked();
@@ -34,6 +35,8 @@ private:
     void loadChapters();       // Загрузка глав (один раз)
     void updateButtonsState(); // Обновление состояния кнопок
     void setActiveTab(int tabIndex);
+    void applyChapterHighlight(); // Подсветка главы, на которой остановились
+    void refreshSidePanels();     // Список закладок и цитат справа
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
@@ -43,12 +46,9 @@ private:
     bool chaptersLoaded = false;
 
     // Top elements
-    QPushButton* backBtn = nullptr;
-    QLabel* tabContents = nullptr;
-    QLabel* tabBookmarks = nullptr;
-    QLabel* tabNotes = nullptr;
-    QFrame* tabUnderline = nullptr;
-    QStackedWidget* tabStack = nullptr;
+    QLabel* tabBookmarks = nullptr; // вкладка "закладки"
+    QLabel* tabNotes = nullptr;     // вкладка "цитаты"
+    QStackedWidget* tabStack = nullptr; // правый блок: закладки / цитаты
 
     // Header elements
     QLabel* coverLbl = nullptr;
@@ -66,8 +66,13 @@ private:
     QProgressBar* progressBar = nullptr;
 
     // Contents
-    QWidget* contentsPage = nullptr;
     QVBoxLayout* contentsListLayout = nullptr;
     QWidget* placeholdersBookmarks = nullptr;
     QWidget* placeholdersNotes = nullptr;
+
+    // Списки глав/закладок/цитат
+    QVector<QWidget*> chapterRows; // строки содержания (для подсветки)
+    int chapterCount = 0;
+    QVBoxLayout* bookmarksLayout = nullptr; // содержимое вкладки "закладки"
+    QVBoxLayout* quotesLayout = nullptr;    // содержимое вкладки "цитаты"
 };

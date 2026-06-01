@@ -43,82 +43,20 @@ BookInfoPage::BookInfoPage(QWidget* parent)
     setStyleSheet("background:#110E0A; color:white;");
 
     auto* root = new QVBoxLayout(this);
-    root->setContentsMargins(0, 0, 0, 0);
+    root->setContentsMargins(22, 18, 22, 18);
+    root->setSpacing(16);
 
-    auto* pageScroll = new QScrollArea;
-    pageScroll->setWidgetResizable(true);
-    pageScroll->setFrameShape(QFrame::NoFrame);
-    pageScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    pageScroll->setStyleSheet("background:transparent;");
-    pageScroll->setStyleSheet(R"(
-        QScrollArea {
-            background: transparent;
-            border: none;
-        }
-        QScrollBar:vertical {
-            background: #1a1a1a;
-            width: 8px;
-            border-radius: 4px;
-            margin: 0px;
-        }
-        QScrollBar::handle:vertical {
-            background: #4a4a4a;
-            border-radius: 4px;
-            min-height: 20px;
-        }
-        QScrollBar::handle:vertical:hover {
-            background: #5a5a5a;
-        }
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-            height: 0px;
-        }
-        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-            background: none;
-        }
-    )");
+    // Тонкий скроллбар для внутренних областей (страница больше не прокручивается)
+    const QString scrollStyle = R"(
+        QScrollArea { background: transparent; border: none; }
+        QScrollBar:vertical { background: transparent; width: 8px; margin: 0px; }
+        QScrollBar::handle:vertical { background: #4a4038; border-radius: 4px; min-height: 24px; }
+        QScrollBar::handle:vertical:hover { background: #5e5249; }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
+    )";
 
-    auto* page = new QWidget;
-    page->setStyleSheet("background:#110E0A;");
-
-    auto* contentRoot = new QVBoxLayout(page);
-    contentRoot->setContentsMargins(22, 18, 22, 18);
-    contentRoot->setSpacing(16);
-
-    // ===== TOP =====
-
-    auto* top = new QHBoxLayout;
-    top->setSpacing(12);
-
-    backBtn = new QPushButton;
-    backBtn->setFixedSize(36, 36);
-    backBtn->setCursor(Qt::PointingHandCursor);
-    backBtn->setIconSize(QSize(18, 18));
-    backBtn->setIcon(QIcon("image icon/back.png"));
-
-    connect(backBtn, &QPushButton::clicked,
-        this, &BookInfoPage::backRequested);
-
-    tabContents = makeTabLabel("содержание");
-    tabBookmarks = makeTabLabel("закладки");
-    tabNotes = makeTabLabel("заметки");
-
-    top->addWidget(backBtn);
-    top->addSpacing(8);
-    top->addWidget(tabContents);
-    top->addSpacing(18);
-    top->addWidget(tabBookmarks);
-    top->addSpacing(18);
-    top->addWidget(tabNotes);
-    top->addStretch();
-
-    contentRoot->addLayout(top);
-
-    tabUnderline = new QFrame;
-    tabUnderline->setFixedHeight(2);
-    tabUnderline->setStyleSheet("background:#2a2a2a;");
-    contentRoot->addWidget(tabUnderline);
-
-    // ===== HEADER =====
+    // ===== HEADER (информация о книге) =====
 
     auto* header = new QHBoxLayout;
     header->setSpacing(18);
@@ -247,50 +185,109 @@ BookInfoPage::BookInfoPage(QWidget* parent)
     infoCol->addLayout(progressHeaderLayout);
     infoCol->addWidget(progressBar);
 
+    // Растягиваем колонку с информацией на всю ширину левого столбца,
+    // чтобы правый край блока совпадал с блоком «Содержание».
     header->addWidget(coverLbl);
-    header->addLayout(infoCol);
-    header->addStretch();
+    header->addLayout(infoCol, 1);
 
-    contentRoot->addLayout(header);
+    // ===== ОСНОВНАЯ ОБЛАСТЬ: две колонки =====
 
-    // ===== TABS =====
+    auto* mainRow = new QHBoxLayout;
+    mainRow->setSpacing(22);
 
-    tabStack = new QStackedWidget;
-    tabStack->setStyleSheet("background:transparent;");
+    // --- ЛЕВАЯ КОЛОНКА: информация о книге + содержание ---
+    auto* leftCol = new QVBoxLayout;
+    leftCol->setSpacing(14);
 
-    contentsPage = new QWidget;
-
-    auto* contentsRoot = new QVBoxLayout(contentsPage);
-    contentsRoot->setContentsMargins(0, 0, 0, 0);
-    contentsRoot->setSpacing(10);
+    leftCol->addLayout(header);
 
     auto* contentsTitle = new QLabel("Содержание");
     contentsTitle->setStyleSheet(
         "font-size:24px;"
         "color:#d2c7bb;"
     );
+    leftCol->addWidget(contentsTitle);
 
-    contentsRoot->addWidget(contentsTitle);
+    auto* leftScroll = new QScrollArea;
+    leftScroll->setWidgetResizable(true);
+    leftScroll->setFrameShape(QFrame::NoFrame);
+    leftScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    leftScroll->setStyleSheet(scrollStyle);
 
     auto* listWidget = new QWidget;
+    listWidget->setStyleSheet("background:transparent;");
 
     contentsListLayout = new QVBoxLayout(listWidget);
+    contentsListLayout->setContentsMargins(0, 0, 8, 0);
     contentsListLayout->setSpacing(10);
 
-    contentsRoot->addWidget(listWidget);
+    leftScroll->setWidget(listWidget);
+    leftCol->addWidget(leftScroll, 1);
 
-    placeholdersBookmarks = new QLabel("Закладки (будет тут)");
-    placeholdersNotes = new QLabel("Заметки (будет тут)");
+    // --- ПРАВАЯ КОЛОНКА: закладки / цитаты ---
+    auto* rightCol = new QVBoxLayout;
+    rightCol->setSpacing(14);
 
-    tabStack->addWidget(contentsPage);
-    tabStack->addWidget(placeholdersBookmarks);
-    tabStack->addWidget(placeholdersNotes);
+    // Кнопки переключения над блоком
+    auto* rightTabs = new QHBoxLayout;
+    rightTabs->setSpacing(18);
 
-    contentRoot->addWidget(tabStack);
+    tabBookmarks = makeTabLabel("закладки");
+    tabNotes = makeTabLabel("цитаты");
 
-    pageScroll->setWidget(page);
+    rightTabs->addWidget(tabBookmarks);
+    rightTabs->addWidget(tabNotes);
+    rightTabs->addStretch();
 
-    root->addWidget(pageScroll);
+    rightCol->addLayout(rightTabs);
+
+    // Блок чуть светлее основного фона (как подсветка главы)
+    auto* rightBlock = new QFrame;
+    rightBlock->setStyleSheet("QFrame{background:#1d1914; border-radius:14px;}");
+
+    auto* rightBlockLayout = new QVBoxLayout(rightBlock);
+    rightBlockLayout->setContentsMargins(8, 8, 8, 8);
+
+    auto* rightScroll = new QScrollArea;
+    rightScroll->setWidgetResizable(true);
+    rightScroll->setFrameShape(QFrame::NoFrame);
+    rightScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    rightScroll->setStyleSheet(scrollStyle);
+
+    tabStack = new QStackedWidget;
+    tabStack->setStyleSheet("background:transparent;");
+
+    // Вкладка "закладки" — контейнер со своим вертикальным layout'ом
+    auto* bookmarksPage = new QWidget;
+    bookmarksPage->setStyleSheet("background:transparent;");
+    bookmarksLayout = new QVBoxLayout(bookmarksPage);
+    bookmarksLayout->setContentsMargins(4, 4, 4, 4);
+    bookmarksLayout->setSpacing(8);
+    bookmarksLayout->addStretch();
+
+    // Вкладка "цитаты"
+    auto* notesPage = new QWidget;
+    notesPage->setStyleSheet("background:transparent;");
+    quotesLayout = new QVBoxLayout(notesPage);
+    quotesLayout->setContentsMargins(4, 4, 4, 4);
+    quotesLayout->setSpacing(8);
+    quotesLayout->addStretch();
+
+    placeholdersBookmarks = bookmarksPage;
+    placeholdersNotes = notesPage;
+
+    tabStack->addWidget(bookmarksPage);
+    tabStack->addWidget(notesPage);
+
+    rightScroll->setWidget(tabStack);
+    rightBlockLayout->addWidget(rightScroll);
+
+    rightCol->addWidget(rightBlock, 1);
+
+    mainRow->addLayout(leftCol, 3);
+    mainRow->addLayout(rightCol, 2);
+
+    root->addLayout(mainRow, 1);
 
     // ===== CONNECTS =====
 
@@ -300,16 +297,15 @@ BookInfoPage::BookInfoPage(QWidget* parent)
     connect(finishBtn, &QPushButton::clicked,
         this, &BookInfoPage::onFinishButtonClicked);
 
-    // ===== TABS =====
+    // ===== TABS (только закладки / цитаты) =====
 
     auto setTabClick = [&](QLabel* tab, int idx) {
         tab->installEventFilter(this);
         tab->setProperty("tabIndex", idx);
         };
 
-    setTabClick(tabContents, 0);
-    setTabClick(tabBookmarks, 1);
-    setTabClick(tabNotes, 2);
+    setTabClick(tabBookmarks, 0);
+    setTabClick(tabNotes, 1);
 
     setActiveTab(0);
 }
@@ -373,13 +369,8 @@ void BookInfoPage::loadBookInfo()
         coverLbl->setText("Нет обложки");
     }
 
-    // Статистика
-    const auto chapters = Database::instance().listChapters(currentBookId, nullptr);
-    statsLbl->setText(
-        QString("%1 глав • %2 страниц")
-        .arg(chapters.size())
-        .arg(book.totalPages)
-    );
+    // Статистика (число глав) проставляется в loadChapters(), где список глав
+    // уже запрашивается — чтобы не дёргать listChapters дважды.
 }
 
 void BookInfoPage::loadChapters()
@@ -388,6 +379,7 @@ void BookInfoPage::loadChapters()
         return;
 
     // Очищаем старые главы
+    chapterRows.clear();
     while (QLayoutItem* it = contentsListLayout->takeAt(0))
     {
         if (auto* w = it->widget())
@@ -398,13 +390,23 @@ void BookInfoPage::loadChapters()
     const auto chapters =
         Database::instance().listChapters(currentBookId, nullptr);
 
+    chapterCount = chapters.size();
+
+    statsLbl->setText(
+        QString("%1 глав • %2 страниц")
+        .arg(chapterCount)
+        .arg(totalPages)
+    );
+
     int displayIndex = 1;
 
     for (const auto& ch : chapters)
     {
+        // Вся строка главы — одна сплошная кнопка
         auto* row = new ClickableRow;
 
         row->setFixedHeight(62);
+        row->setCursor(Qt::PointingHandCursor);
 
         row->setStyleSheet(
             "QFrame{"
@@ -429,26 +431,26 @@ void BookInfoPage::loadChapters()
             "color:#ff8c00;"
             "font-size:18px;"
             "min-width:40px;"
+            "background:transparent;"
         );
 
         auto* name = new QLabel(ch.title);
+        name->setObjectName("chapterName");
 
         name->setStyleSheet(
             "font-size:18px;"
             "color:#d2c7bb;"
+            "background:transparent;"
         );
 
-        auto* play = new QLabel;
-        play->setFixedSize(22, 22);
-
-        play->setPixmap(
-            QIcon("image icon/play.png").pixmap(22, 22)
-        );
+        // Клики по содержимому не должны перехватываться дочерними виджетами —
+        // вся карточка целиком работает как одна кнопка.
+        idx->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        name->setAttribute(Qt::WA_TransparentForMouseEvents, true);
 
         h->addWidget(idx);
         h->addWidget(name);
         h->addStretch();
-        h->addWidget(play);
 
         const int chapterIdx = ch.index;
 
@@ -457,10 +459,13 @@ void BookInfoPage::loadChapters()
             };
 
         contentsListLayout->addWidget(row);
+        chapterRows.push_back(row);
     }
 
     contentsListLayout->addStretch();
     chaptersLoaded = true;
+
+    applyChapterHighlight();
 }
 
 void BookInfoPage::updateProgress()
@@ -476,6 +481,15 @@ void BookInfoPage::updateProgress()
 
     totalPages = book.totalPages;
     currentPage = book.lastPage;
+
+    // Обновляем число страниц в статистике (после закрытия ридера totalPages
+    // уже посчитан — счётчик появляется сразу, без перезапуска приложения).
+    if (chapterCount > 0)
+        statsLbl->setText(
+            QString("%1 глав • %2 страниц").arg(chapterCount).arg(totalPages));
+
+    applyChapterHighlight();
+    refreshSidePanels();
 
     bool isFinished = totalPages > 0 && currentPage >= (totalPages - 1);
 
@@ -600,6 +614,190 @@ void BookInfoPage::onFinishButtonClicked()
     updateProgress();
 }
 
+void BookInfoPage::applyChapterHighlight()
+{
+    if (chapterRows.isEmpty())
+        return;
+
+    // Подсветка как в ридере (buildContentsContent): заливка без обводки,
+    // активная глава — оранжевый жирный заголовок.
+    const QString base =
+        "QFrame{background:#1d1914;border-radius:12px;}"
+        "QFrame:hover{background:#262019;}";
+    const QString activeStyle =
+        "QFrame{background:#3a2e1c;border-radius:12px;}";
+
+    const QString nameBase =
+        "font-size:18px;color:#d2c7bb;background:transparent;";
+    const QString nameActive =
+        "font-size:18px;color:#ff8c00;font-weight:bold;background:transparent;";
+
+    // Подсвечиваем только если чтение действительно начато.
+    int active = -1;
+    if (currentPage > 0)
+    {
+        DbBook book;
+        if (Database::instance().getBook(currentBookId, &book, nullptr))
+            active = book.lastChapter;
+    }
+
+    for (int i = 0; i < chapterRows.size(); ++i)
+    {
+        const bool isActive = (i == active);
+        chapterRows[i]->setStyleSheet(isActive ? activeStyle : base);
+        if (auto* name = chapterRows[i]->findChild<QLabel*>("chapterName"))
+            name->setStyleSheet(isActive ? nameActive : nameBase);
+    }
+}
+
+void BookInfoPage::refreshSidePanels()
+{
+    if (!bookmarksLayout || !quotesLayout || !currentBookId)
+        return;
+
+    auto clearLayout = [](QVBoxLayout* lay) {
+        while (QLayoutItem* it = lay->takeAt(0))
+        {
+            if (auto* w = it->widget())
+            {
+                w->hide();
+                w->deleteLater();
+            }
+            delete it;
+        }
+    };
+
+    clearLayout(bookmarksLayout);
+    clearLayout(quotesLayout);
+
+    const QString delStyle =
+        "QPushButton{background:transparent;border:none;color:#8c847a;font-size:14px;}"
+        "QPushButton:hover{color:#ff8c00;}";
+
+    // ---- Закладки ----
+    const auto bookmarks = Database::instance().listBookmarks(currentBookId, nullptr);
+    if (bookmarks.isEmpty())
+    {
+        auto* e = new QLabel("Здесь будут ваши закладки");
+        e->setAlignment(Qt::AlignCenter);
+        e->setStyleSheet("color:#8c847a; font-size:14px; background:transparent;");
+        bookmarksLayout->addWidget(e);
+    }
+    else
+    {
+        for (const auto& bm : bookmarks)
+        {
+            auto* row = new ClickableRow;
+            row->setCursor(Qt::PointingHandCursor);
+            row->setStyleSheet(
+                "QFrame{background:#241f18;border-radius:8px;}"
+                "QFrame:hover{background:#2e2820;}");
+            const int page = bm.page;
+            row->onClick = [this, page]() {
+                emit openReaderAtPageRequested(currentBookId, page);
+                };
+
+            auto* h = new QHBoxLayout(row);
+            h->setContentsMargins(12, 8, 12, 8);
+            h->setSpacing(8);
+
+            auto* col = new QVBoxLayout;
+            col->setContentsMargins(0, 0, 0, 0);
+            col->setSpacing(3);
+
+            auto* t = new QLabel(QString("Стр. %1").arg(bm.page + 1));
+            t->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            t->setStyleSheet("color:#ff8c00; font-size:13px; font-weight:bold; background:transparent;");
+            auto* c = new QLabel(bm.chapterTitle.isEmpty() ? "—" : bm.chapterTitle);
+            c->setWordWrap(true);
+            c->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            c->setStyleSheet("color:#cfc7bd; font-size:12px; background:transparent;");
+            col->addWidget(t);
+            col->addWidget(c);
+
+            auto* del = new QPushButton("✕");
+            del->setCursor(Qt::PointingHandCursor);
+            del->setFixedSize(28, 28);
+            del->setStyleSheet(delStyle);
+            const int id = bm.id;
+            connect(del, &QPushButton::clicked, this, [this, id]() {
+                Database::instance().removeBookmark(id, nullptr);
+                refreshSidePanels();
+                });
+
+            h->addLayout(col, 1);
+            h->addWidget(del, 0, Qt::AlignTop);
+            bookmarksLayout->addWidget(row);
+        }
+    }
+    bookmarksLayout->addStretch();
+
+    // ---- Цитаты ----
+    const auto quotes = Database::instance().listQuotes(currentBookId, nullptr);
+    if (quotes.isEmpty())
+    {
+        auto* e = new QLabel("Здесь будут ваши цитаты");
+        e->setAlignment(Qt::AlignCenter);
+        e->setStyleSheet("color:#8c847a; font-size:14px; background:transparent;");
+        quotesLayout->addWidget(e);
+    }
+    else
+    {
+        for (const auto& q : quotes)
+        {
+            auto* block = new ClickableRow;
+            block->setCursor(Qt::PointingHandCursor);
+            block->setStyleSheet(QString("QFrame{background:%1;border-radius:10px;}").arg(q.color));
+            const int page = q.page;
+            block->onClick = [this, page]() {
+                emit openReaderAtPageRequested(currentBookId, page);
+                };
+
+            auto* v = new QVBoxLayout(block);
+            v->setContentsMargins(12, 10, 12, 8);
+            v->setSpacing(6);
+
+            // Убираем разделители строк/абзацев (U+2028/U+2029), иначе в QLabel
+            // они рисуются вертикальной полоской вдоль текста.
+            QString quoteText = q.text;
+            quoteText.replace(QChar(0x2028), '\n');
+            quoteText.replace(QChar(0x2029), '\n');
+
+            auto* txt = new QLabel(quoteText);
+            txt->setWordWrap(true);
+            txt->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            txt->setStyleSheet("color:#1a1a1a; font-size:13px; background:transparent;");
+            v->addWidget(txt);
+
+            auto* footer = new QHBoxLayout;
+            footer->setContentsMargins(0, 0, 0, 0);
+            auto* pg = new QLabel(QString("Стр. %1").arg(q.page + 1));
+            pg->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            pg->setStyleSheet("color:#333333; font-size:11px; font-weight:bold; background:transparent;");
+
+            auto* del = new QPushButton("✕");
+            del->setCursor(Qt::PointingHandCursor);
+            del->setFixedSize(22, 22);
+            del->setStyleSheet(
+                "QPushButton{background:transparent;border:none;color:#444444;font-size:12px;}"
+                "QPushButton:hover{color:#000000;}");
+            const int id = q.id;
+            connect(del, &QPushButton::clicked, this, [this, id]() {
+                Database::instance().removeQuote(id, nullptr);
+                refreshSidePanels();
+                });
+
+            footer->addWidget(pg);
+            footer->addStretch();
+            footer->addWidget(del);
+            v->addLayout(footer);
+
+            quotesLayout->addWidget(block);
+        }
+    }
+    quotesLayout->addStretch();
+}
+
 void BookInfoPage::setActiveTab(int tabIndex)
 {
     tabStack->setCurrentIndex(tabIndex);
@@ -614,16 +812,12 @@ void BookInfoPage::setActiveTab(int tabIndex)
         "color:#888;"
         "padding-bottom:6px;";
 
-    tabContents->setStyleSheet(
+    tabBookmarks->setStyleSheet(
         tabIndex == 0 ? styleActive : styleInactive
     );
 
-    tabBookmarks->setStyleSheet(
-        tabIndex == 1 ? styleActive : styleInactive
-    );
-
     tabNotes->setStyleSheet(
-        tabIndex == 2 ? styleActive : styleInactive
+        tabIndex == 1 ? styleActive : styleInactive
     );
 }
 
@@ -631,8 +825,7 @@ bool BookInfoPage::eventFilter(QObject* watched, QEvent* event)
 {
     if (event->type() == QEvent::MouseButtonPress)
     {
-        if (watched == tabContents ||
-            watched == tabBookmarks ||
+        if (watched == tabBookmarks ||
             watched == tabNotes)
         {
             const int idx = watched->property("tabIndex").toInt();

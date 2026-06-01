@@ -5,6 +5,7 @@
 #include <SQLite/sqlite3.h>
 
 #include <QDateTime>
+#include <QCryptographicHash>
 
 static QString sqliteErr(sqlite3* db)
 {
@@ -13,6 +14,13 @@ static QString sqliteErr(sqlite3* db)
         : "no db";
 
     return QString::fromUtf8(msg);
+}
+
+static QString hashPassword(const QString& password)
+{
+    QByteArray digest = QCryptographicHash::hash(
+        password.toUtf8(), QCryptographicHash::Sha256);
+    return QString::fromLatin1(digest.toHex());
 }
 
 static bool replaceChapters(sqlite3* db, int bookId, const QVector<ParsedChapter>& chapters, QString* errorOut)
@@ -195,8 +203,16 @@ CREATE TABLE IF NOT EXISTS books (
     cover         BLOB,
     total_pages   INTEGER NOT NULL DEFAULT 0,
     last_page     INTEGER NOT NULL DEFAULT 0,
+    is_favorite   INTEGER NOT NULL DEFAULT 0,
     created_at    INTEGER NOT NULL,
     last_read_at  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    login         TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at    INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS chapters (
@@ -221,6 +237,34 @@ CREATE TABLE IF NOT EXISTS reader_settings (
         ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id       INTEGER NOT NULL,
+    page          INTEGER NOT NULL,
+    chapter_index INTEGER NOT NULL DEFAULT 0,
+    chapter_title TEXT NOT NULL DEFAULT '',
+    created_at    INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(book_id)
+        REFERENCES books(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS quotes (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id       INTEGER NOT NULL,
+    page          INTEGER NOT NULL,
+    chapter_index INTEGER NOT NULL DEFAULT 0,
+    chapter_title TEXT NOT NULL DEFAULT '',
+    start_pos     INTEGER NOT NULL,
+    end_pos       INTEGER NOT NULL,
+    text          TEXT NOT NULL,
+    color         TEXT NOT NULL,
+    created_at    INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(book_id)
+        REFERENCES books(id)
+        ON DELETE CASCADE
+);
+
 )SQL";
 
     if (!exec(schema, errorOut))
@@ -229,8 +273,158 @@ CREATE TABLE IF NOT EXISTS reader_settings (
     // Миграция для уже существующих БД: добавить колонку cover, если её нет.
     // Если колонка уже есть, SQLite вернёт ошибку "duplicate column" — игнорируем.
     exec("ALTER TABLE books ADD COLUMN cover BLOB;", nullptr);
+    exec("ALTER TABLE books ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;", nullptr);
+    exec("ALTER TABLE books ADD COLUMN last_chapter INTEGER NOT NULL DEFAULT 0;", nullptr);
+    // Привязка книг к пользователю (0 = гостевой режим).
+    exec("ALTER TABLE books ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0;", nullptr);
 
     return true;
+}
+
+// ===================== ПОЛЬЗОВАТЕЛИ =====================
+
+bool Database::registerUser(
+    const QString& login,
+    const QString& password,
+    int* outUserId,
+    QString* errorOut)
+{
+    if (!openOrCreate())
+    {
+        if (errorOut) *errorOut = "Не удалось открыть БД";
+        return false;
+    }
+
+    const QString trimmed = login.trimmed();
+    if (trimmed.isEmpty() || password.isEmpty())
+    {
+        if (errorOut) *errorOut = "Введите логин и пароль";
+        return false;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(
+        db,
+        "INSERT INTO users(login,password_hash,created_at) VALUES(?,?,?);",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return false;
+    }
+
+    QByteArray loginUtf8 = trimmed.toUtf8();
+    QByteArray hashUtf8 = hashPassword(password).toUtf8();
+
+    sqlite3_bind_text(stmt, 1, loginUtf8.constData(), loginUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, hashUtf8.constData(), hashUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 3, QDateTime::currentSecsSinceEpoch());
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE)
+    {
+        // UNIQUE constraint → логин занят.
+        if (errorOut)
+            *errorOut = QString::fromUtf8(sqlite3_errmsg(db)).contains("UNIQUE", Qt::CaseInsensitive)
+                ? QString("Этот логин уже занят")
+                : sqliteErr(db);
+        return false;
+    }
+
+    if (outUserId)
+        *outUserId = (int)sqlite3_last_insert_rowid(db);
+
+    return true;
+}
+
+bool Database::authenticateUser(
+    const QString& login,
+    const QString& password,
+    int* outUserId,
+    QString* errorOut)
+{
+    if (!openOrCreate())
+    {
+        if (errorOut) *errorOut = "Не удалось открыть БД";
+        return false;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(
+        db,
+        "SELECT id,password_hash FROM users WHERE login=?;",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return false;
+    }
+
+    QByteArray loginUtf8 = login.trimmed().toUtf8();
+    sqlite3_bind_text(stmt, 1, loginUtf8.constData(), loginUtf8.size(), SQLITE_TRANSIENT);
+
+    bool ok = false;
+
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        int userId = sqlite3_column_int(stmt, 0);
+        QString storedHash = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 1));
+
+        if (storedHash == hashPassword(password))
+        {
+            if (outUserId) *outUserId = userId;
+            ok = true;
+        }
+        else if (errorOut)
+        {
+            *errorOut = "Неверный пароль";
+        }
+    }
+    else if (errorOut)
+    {
+        *errorOut = "Пользователь не найден";
+    }
+
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+void Database::setCurrentUser(int userId, const QString& login)
+{
+    curUserId = userId;
+    curUserLogin = login;
+}
+
+void Database::logoutUser()
+{
+    curUserId = 0;
+    curUserLogin.clear();
+}
+
+bool Database::attachGuestBooksToUser(int userId, QString* errorOut)
+{
+    if (!openOrCreate())
+    {
+        if (errorOut) *errorOut = "Не удалось открыть БД";
+        return false;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(
+        db,
+        "UPDATE books SET user_id=? WHERE user_id=0;",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, userId);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    if (!ok && errorOut) *errorOut = sqliteErr(db);
+
+    sqlite3_finalize(stmt);
+    return ok;
 }
 
 int Database::addBook(
@@ -257,8 +451,9 @@ int Database::addBook(
         "annotation,"
         "genre,"
         "cover,"
+        "user_id,"
         "created_at"
-        ") VALUES(?,?,?,?,?,?,?);";
+        ") VALUES(?,?,?,?,?,?,?,?);";
 
     if (sqlite3_prepare_v2(
         db,
@@ -290,7 +485,8 @@ int Database::addBook(
     else
         sqlite3_bind_blob(stmt, 6, meta.cover.constData(), meta.cover.size(), SQLITE_TRANSIENT);
 
-    sqlite3_bind_int64(stmt, 7, QDateTime::currentSecsSinceEpoch());
+    sqlite3_bind_int(stmt, 7, curUserId);
+    sqlite3_bind_int64(stmt, 8, QDateTime::currentSecsSinceEpoch());
 
     if (sqlite3_step(stmt) != SQLITE_DONE)
     {
@@ -333,8 +529,10 @@ QVector<DbBook> Database::listBooks(
         "annotation,"
         "genre,"
         "total_pages,"
-        "last_page "
+        "last_page,"
+        "is_favorite "
         "FROM books "
+        "WHERE user_id=? "
         "ORDER BY created_at DESC;";
 
     if (sqlite3_prepare_v2(
@@ -349,6 +547,8 @@ QVector<DbBook> Database::listBooks(
 
         return result;
     }
+
+    sqlite3_bind_int(stmt, 1, curUserId);
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
@@ -383,6 +583,9 @@ QVector<DbBook> Database::listBooks(
         book.lastPage =
             sqlite3_column_int(stmt, 7);
 
+        book.favorite =
+            sqlite3_column_int(stmt, 8) != 0;
+
         result.push_back(book);
     }
 
@@ -391,7 +594,7 @@ QVector<DbBook> Database::listBooks(
     return result;
 }
 
-static QVector<DbBook> queryBooks(sqlite3* db, const char* sql, int limit, QString* errorOut)
+static QVector<DbBook> queryBooks(sqlite3* db, const char* sql, int userId, int limit, QString* errorOut)
 {
     QVector<DbBook> result;
 
@@ -407,8 +610,10 @@ static QVector<DbBook> queryBooks(sqlite3* db, const char* sql, int limit, QStri
         return result;
     }
 
+    // Все запросы фильтруют по user_id (первый параметр), затем — limit.
+    sqlite3_bind_int(stmt, 1, userId);
     if (limit > 0)
-        sqlite3_bind_int(stmt, 1, limit);
+        sqlite3_bind_int(stmt, 2, limit);
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
@@ -418,6 +623,8 @@ static QVector<DbBook> queryBooks(sqlite3* db, const char* sql, int limit, QStri
         book.author = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 2));
         book.totalPages = sqlite3_column_int(stmt, 3);
         book.lastPage = sqlite3_column_int(stmt, 4);
+        book.annotation = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 5));
+        book.favorite = sqlite3_column_int(stmt, 6) != 0;
         result.push_back(book);
     }
 
@@ -428,17 +635,17 @@ static QVector<DbBook> queryBooks(sqlite3* db, const char* sql, int limit, QStri
 QVector<DbBook> Database::listRecentlyAdded(int limit, QString* errorOut) const
 {
     const char* sql = limit > 0
-        ? "SELECT id,title,author,total_pages,last_page FROM books ORDER BY created_at DESC LIMIT ?;"
-        : "SELECT id,title,author,total_pages,last_page FROM books ORDER BY created_at DESC;";
-    return queryBooks(db, sql, limit, errorOut);
+        ? "SELECT id,title,author,total_pages,last_page,annotation,is_favorite FROM books WHERE user_id=? ORDER BY created_at DESC LIMIT ?;"
+        : "SELECT id,title,author,total_pages,last_page,annotation,is_favorite FROM books WHERE user_id=? ORDER BY created_at DESC;";
+    return queryBooks(db, sql, curUserId, limit, errorOut);
 }
 
 QVector<DbBook> Database::listRecentlyRead(int limit, QString* errorOut) const
 {
     const char* sql = limit > 0
-        ? "SELECT id,title,author,total_pages,last_page FROM books WHERE last_read_at > 0 ORDER BY last_read_at DESC LIMIT ?;"
-        : "SELECT id,title,author,total_pages,last_page FROM books WHERE last_read_at > 0 ORDER BY last_read_at DESC;";
-    return queryBooks(db, sql, limit, errorOut);
+        ? "SELECT id,title,author,total_pages,last_page,annotation,is_favorite FROM books WHERE user_id=? AND last_read_at > 0 ORDER BY last_read_at DESC LIMIT ?;"
+        : "SELECT id,title,author,total_pages,last_page,annotation,is_favorite FROM books WHERE user_id=? AND last_read_at > 0 ORDER BY last_read_at DESC;";
+    return queryBooks(db, sql, curUserId, limit, errorOut);
 }
 
 QByteArray Database::getBookCover(int bookId, QString* errorOut) const
@@ -558,7 +765,9 @@ bool Database::getBook(
         "annotation,"
         "genre,"
         "total_pages,"
-        "last_page "
+        "last_page,"
+        "is_favorite,"
+        "last_chapter "
         "FROM books "
         "WHERE id=?;";
 
@@ -610,6 +819,12 @@ bool Database::getBook(
 
         out->lastPage =
             sqlite3_column_int(stmt, 7);
+
+        out->favorite =
+            sqlite3_column_int(stmt, 8) != 0;
+
+        out->lastChapter =
+            sqlite3_column_int(stmt, 9);
     }
 
     sqlite3_finalize(stmt);
@@ -793,6 +1008,31 @@ bool Database::updateLastPage(
     return ok;
 }
 
+bool Database::updateLastChapter(
+    int bookId,
+    int chapterIndex,
+    QString* errorOut)
+{
+    sqlite3_stmt* stmt = nullptr;
+
+    const char* sql =
+        "UPDATE books SET last_chapter=? WHERE id=?;";
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut)
+            *errorOut = sqliteErr(db);
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, chapterIndex);
+    sqlite3_bind_int(stmt, 2, bookId);
+
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
 bool Database::updateTotalPages(
     int bookId,
     int totalPages,
@@ -826,6 +1066,108 @@ bool Database::updateTotalPages(
 
     sqlite3_finalize(stmt);
 
+    return ok;
+}
+
+bool Database::setFavorite(int bookId, bool favorite, QString* errorOut)
+{
+    if (!openOrCreate())
+        return false;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(
+        db,
+        "UPDATE books SET is_favorite=? WHERE id=?;",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut)
+            *errorOut = sqliteErr(db);
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, favorite ? 1 : 0);
+    sqlite3_bind_int(stmt, 2, bookId);
+
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    if (!ok && errorOut)
+        *errorOut = sqliteErr(db);
+
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool Database::deleteBook(int bookId, QString* errorOut)
+{
+    if (!openOrCreate())
+        return false;
+
+    // Внешние ключи в SQLite по умолчанию выключены, поэтому удаляем
+    // связанные строки вручную в одной транзакции.
+    if (!exec("BEGIN;", errorOut))
+        return false;
+
+    const char* stmts[] = {
+        "DELETE FROM chapters WHERE book_id=?;",
+        "DELETE FROM reader_settings WHERE book_id=?;",
+        "DELETE FROM bookmarks WHERE book_id=?;",
+        "DELETE FROM quotes WHERE book_id=?;",
+        "DELETE FROM books WHERE id=?;"
+    };
+
+    for (const char* sql : stmts)
+    {
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        {
+            if (errorOut)
+                *errorOut = sqliteErr(db);
+            exec("ROLLBACK;", nullptr);
+            return false;
+        }
+
+        sqlite3_bind_int(stmt, 1, bookId);
+        bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+        sqlite3_finalize(stmt);
+
+        if (!ok)
+        {
+            if (errorOut)
+                *errorOut = sqliteErr(db);
+            exec("ROLLBACK;", nullptr);
+            return false;
+        }
+    }
+
+    return exec("COMMIT;", errorOut);
+}
+
+bool Database::markAsRead(int bookId, QString* errorOut)
+{
+    if (!openOrCreate())
+        return false;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    // Прочитано = последняя страница равна общему числу страниц.
+    if (sqlite3_prepare_v2(
+        db,
+        "UPDATE books SET last_page=total_pages, last_read_at=? WHERE id=?;",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut)
+            *errorOut = sqliteErr(db);
+        return false;
+    }
+
+    sqlite3_bind_int64(stmt, 1, QDateTime::currentSecsSinceEpoch());
+    sqlite3_bind_int(stmt, 2, bookId);
+
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    if (!ok && errorOut)
+        *errorOut = sqliteErr(db);
+
+    sqlite3_finalize(stmt);
     return ok;
 }
 
@@ -882,4 +1224,215 @@ bool Database::getChapterText(
     sqlite3_finalize(stmt);
 
     return ok;
+}
+
+// ===================== ЗАКЛАДКИ =====================
+
+int Database::addBookmark(int bookId, int page, int chapterIndex,
+    const QString& chapterTitle, QString* errorOut)
+{
+    if (!openOrCreate())
+        return 0;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(
+        db,
+        "INSERT INTO bookmarks(book_id,page,chapter_index,chapter_title,created_at) "
+        "VALUES(?,?,?,?,?);",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return 0;
+    }
+
+    QByteArray titleUtf8 = chapterTitle.toUtf8();
+
+    sqlite3_bind_int(stmt, 1, bookId);
+    sqlite3_bind_int(stmt, 2, page);
+    sqlite3_bind_int(stmt, 3, chapterIndex);
+    sqlite3_bind_text(stmt, 4, titleUtf8.constData(), titleUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 5, QDateTime::currentSecsSinceEpoch());
+
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    if (!ok && errorOut) *errorOut = sqliteErr(db);
+
+    sqlite3_finalize(stmt);
+    return ok ? (int)sqlite3_last_insert_rowid(db) : 0;
+}
+
+bool Database::removeBookmark(int id, QString* errorOut)
+{
+    if (!db) return false;
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, "DELETE FROM bookmarks WHERE id=?;", -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return false;
+    }
+    sqlite3_bind_int(stmt, 1, id);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool Database::removeBookmarkByPage(int bookId, int page, QString* errorOut)
+{
+    if (!db) return false;
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, "DELETE FROM bookmarks WHERE book_id=? AND page=?;",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return false;
+    }
+    sqlite3_bind_int(stmt, 1, bookId);
+    sqlite3_bind_int(stmt, 2, page);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool Database::hasBookmark(int bookId, int page) const
+{
+    if (!db) return false;
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, "SELECT 1 FROM bookmarks WHERE book_id=? AND page=? LIMIT 1;",
+        -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
+
+    sqlite3_bind_int(stmt, 1, bookId);
+    sqlite3_bind_int(stmt, 2, page);
+    bool found = sqlite3_step(stmt) == SQLITE_ROW;
+    sqlite3_finalize(stmt);
+    return found;
+}
+
+QVector<DbBookmark> Database::listBookmarks(int bookId, QString* errorOut) const
+{
+    QVector<DbBookmark> result;
+    if (!db) return result;
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(
+        db,
+        "SELECT id,book_id,page,chapter_index,chapter_title FROM bookmarks "
+        "WHERE book_id=? ORDER BY page ASC;",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return result;
+    }
+
+    sqlite3_bind_int(stmt, 1, bookId);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        DbBookmark b;
+        b.id = sqlite3_column_int(stmt, 0);
+        b.bookId = sqlite3_column_int(stmt, 1);
+        b.page = sqlite3_column_int(stmt, 2);
+        b.chapterIndex = sqlite3_column_int(stmt, 3);
+        b.chapterTitle = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 4));
+        result.push_back(b);
+    }
+
+    sqlite3_finalize(stmt);
+    return result;
+}
+
+// ===================== ЦИТАТЫ =====================
+
+int Database::addQuote(const DbQuote& q, QString* errorOut)
+{
+    if (!openOrCreate())
+        return 0;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(
+        db,
+        "INSERT INTO quotes(book_id,page,chapter_index,chapter_title,start_pos,end_pos,text,color,created_at) "
+        "VALUES(?,?,?,?,?,?,?,?,?);",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return 0;
+    }
+
+    QByteArray titleUtf8 = q.chapterTitle.toUtf8();
+    QByteArray textUtf8 = q.text.toUtf8();
+    QByteArray colorUtf8 = q.color.toUtf8();
+
+    sqlite3_bind_int(stmt, 1, q.bookId);
+    sqlite3_bind_int(stmt, 2, q.page);
+    sqlite3_bind_int(stmt, 3, q.chapterIndex);
+    sqlite3_bind_text(stmt, 4, titleUtf8.constData(), titleUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 5, q.startPos);
+    sqlite3_bind_int(stmt, 6, q.endPos);
+    sqlite3_bind_text(stmt, 7, textUtf8.constData(), textUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 8, colorUtf8.constData(), colorUtf8.size(), SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 9, QDateTime::currentSecsSinceEpoch());
+
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    if (!ok && errorOut) *errorOut = sqliteErr(db);
+
+    sqlite3_finalize(stmt);
+    return ok ? (int)sqlite3_last_insert_rowid(db) : 0;
+}
+
+bool Database::removeQuote(int id, QString* errorOut)
+{
+    if (!db) return false;
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, "DELETE FROM quotes WHERE id=?;", -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return false;
+    }
+    sqlite3_bind_int(stmt, 1, id);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+QVector<DbQuote> Database::listQuotes(int bookId, QString* errorOut) const
+{
+    QVector<DbQuote> result;
+    if (!db) return result;
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(
+        db,
+        "SELECT id,book_id,page,chapter_index,chapter_title,start_pos,end_pos,text,color "
+        "FROM quotes WHERE book_id=? ORDER BY start_pos ASC;",
+        -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        if (errorOut) *errorOut = sqliteErr(db);
+        return result;
+    }
+
+    sqlite3_bind_int(stmt, 1, bookId);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        DbQuote q;
+        q.id = sqlite3_column_int(stmt, 0);
+        q.bookId = sqlite3_column_int(stmt, 1);
+        q.page = sqlite3_column_int(stmt, 2);
+        q.chapterIndex = sqlite3_column_int(stmt, 3);
+        q.chapterTitle = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 4));
+        q.startPos = sqlite3_column_int(stmt, 5);
+        q.endPos = sqlite3_column_int(stmt, 6);
+        q.text = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 7));
+        q.color = QString::fromUtf8((const char*)sqlite3_column_text(stmt, 8));
+        result.push_back(q);
+    }
+
+    sqlite3_finalize(stmt);
+    return result;
 }

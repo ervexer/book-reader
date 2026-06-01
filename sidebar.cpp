@@ -39,11 +39,12 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
     // ===== MENU =====
     addMenuItem(" Главная", "image icon/home.png", "image icon/home_orange.png", 0);
     addMenuItem(" Библиотека", "image icon/library.png", "image icon/library_orange.png", 1);
-    addMenuItem(" Коллекции", "image icon/collection.png", "image icon/collection_orange.png", 2);
+    addMenuItem(" Избранное", "image icon/collection.png", "image icon/collection_orange.png", 2);
 
     layoutPtr->addSpacing(20);
 
     addBtn = new QPushButton("Добавить книгу");
+    addBtn->setFocusPolicy(Qt::NoFocus);
 
     addBtn->setStyleSheet(
         "QPushButton{background:#ff8c00;color:white;border-radius:8px;"
@@ -83,8 +84,10 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
     layoutPtr->addWidget(addBtn);
     layoutPtr->addStretch();
 
-    addMenuItem(" Профиль", "image icon/profile.png", "image icon/profile_orange.png", 3);
-    addMenuItem(" Настройки", "image icon/settings.png", "image icon/settings_orange.png", 4);
+    addMenuItem(" Аккаунт", "image icon/profile.png", "image icon/profile_orange.png", 3);
+    // Для «Справки» нет отдельной иконки — используем один и тот же файл,
+    // чтобы значок не пропадал в активном состоянии (подсветится текст).
+    addMenuItem(" Справка", "image icon/list.png", "image icon/list.png", 4);
     setActive(0);
 }
 
@@ -92,6 +95,7 @@ void Sidebar::addMenuItem(const QString& text, const QString& iconPath, const QS
 {
     QPushButton* btn = new QPushButton(text);
     btn->setCursor(Qt::PointingHandCursor);
+    btn->setFocusPolicy(Qt::NoFocus);
     btn->setIcon(QIcon(iconPath));
     btn->setIconSize(QSize(22, 22));
     btn->setFixedHeight(45);
@@ -174,7 +178,7 @@ void Sidebar::toggleSidebar()
     else
     {
         setFixedWidth(220);
-        QStringList texts = {" Главная"," Библиотека"," Коллекции"," Профиль"," Настройки"};
+        QStringList texts = {" Главная"," Библиотека"," Избранное"," Аккаунт"," Справка"};
 
         for (int i = 0; i < items.size(); i++)
         {

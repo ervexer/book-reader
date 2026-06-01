@@ -2,6 +2,7 @@
 
 #include <QMainWindow>
 #include <QPoint>
+#include <QRect>
 
 class QStackedWidget;
 class Sidebar;
@@ -17,14 +18,13 @@ public:
     MainWindow(QWidget* parent = nullptr);
 
 protected:
-    /*
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-    void mouseReleaseEvent(QMouseEvent* event) override;
-    */
+    // Перетаскивание окна за верхнюю панель в оконном режиме.
+    bool eventFilter(QObject* obj, QEvent* event) override;
+
 private:
 
     QStackedWidget* stack;
+    QWidget* topBarWidget = nullptr;
     Sidebar* sidebar;
     BookInfoPage* bookInfoPage = nullptr;
     ReaderWindow* readerWindow = nullptr;
@@ -36,4 +36,7 @@ private:
     const int dragHeight = 40;
 
     bool isWindowedMode = false;
+
+    bool windowMaximized = true; // текущее состояние окна (развёрнуто/оконный режим)
+    QRect normalGeom;            // геометрия оконного режима
 };
