@@ -131,6 +131,15 @@ public:
         int bookId,
         QString* errorOut = nullptr) const;
 
+    // Стартовые страницы глав (по порядку idx). Записывается ридером,
+    // читается на странице книги. -1 = страница ещё не вычислена.
+    bool updateChapterPages(
+        int bookId,
+        const QVector<int>& startPages,
+        QString* errorOut = nullptr);
+
+    QVector<int> listChapterStartPages(int bookId) const;
+
     bool getBook(
         int bookId,
         DbBook* out,

@@ -216,11 +216,12 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS chapters (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    book_id   INTEGER NOT NULL,
-    idx       INTEGER NOT NULL,
-    title     TEXT NOT NULL,
-    text      TEXT NOT NULL,
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id    INTEGER NOT NULL,
+    idx        INTEGER NOT NULL,
+    title      TEXT NOT NULL,
+    text       TEXT NOT NULL,
+    start_page INTEGER NOT NULL DEFAULT -1,
     FOREIGN KEY(book_id)
         REFERENCES books(id)
         ON DELETE CASCADE
@@ -277,6 +278,8 @@ CREATE TABLE IF NOT EXISTS quotes (
     exec("ALTER TABLE books ADD COLUMN last_chapter INTEGER NOT NULL DEFAULT 0;", nullptr);
     // Привязка книг к пользователю (0 = гостевой режим).
     exec("ALTER TABLE books ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0;", nullptr);
+    // Стартовая страница каждой главы (-1 = ещё не вычислена ридером).
+    exec("ALTER TABLE chapters ADD COLUMN start_page INTEGER NOT NULL DEFAULT -1;", nullptr);
 
     return true;
 }
@@ -740,6 +743,93 @@ QVector<DbChapter> Database::listChapters(
 
         result.push_back(chapter);
     }
+
+    sqlite3_finalize(stmt);
+
+    return result;
+}
+
+bool Database::updateChapterPages(
+    int bookId,
+    const QVector<int>& startPages,
+    QString* errorOut)
+{
+    if (!openOrCreate())
+    {
+        if (errorOut)
+            *errorOut = "Не удалось открыть базу данных";
+        return false;
+    }
+
+    if (startPages.isEmpty())
+        return true;
+
+    if (!exec("BEGIN;", errorOut))
+        return false;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(
+        db,
+        "UPDATE chapters SET start_page=? WHERE book_id=? AND idx=?;",
+        -1,
+        &stmt,
+        nullptr) != SQLITE_OK)
+    {
+        if (errorOut)
+            *errorOut = sqliteErr(db);
+        exec("ROLLBACK;", nullptr);
+        return false;
+    }
+
+    for (int i = 0; i < startPages.size(); ++i)
+    {
+        sqlite3_bind_int(stmt, 1, startPages[i]);
+        sqlite3_bind_int(stmt, 2, bookId);
+        sqlite3_bind_int(stmt, 3, i);
+
+        if (sqlite3_step(stmt) != SQLITE_DONE)
+        {
+            if (errorOut)
+                *errorOut = sqliteErr(db);
+
+            sqlite3_finalize(stmt);
+            exec("ROLLBACK;", nullptr);
+            return false;
+        }
+
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+    }
+
+    sqlite3_finalize(stmt);
+
+    return exec("COMMIT;", errorOut);
+}
+
+QVector<int> Database::listChapterStartPages(int bookId) const
+{
+    QVector<int> result;
+
+    if (!db)
+        return result;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(
+        db,
+        "SELECT start_page FROM chapters WHERE book_id=? ORDER BY idx ASC;",
+        -1,
+        &stmt,
+        nullptr) != SQLITE_OK)
+    {
+        return result;
+    }
+
+    sqlite3_bind_int(stmt, 1, bookId);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+        result.push_back(sqlite3_column_int(stmt, 0));
 
     sqlite3_finalize(stmt);
 

@@ -443,6 +443,17 @@ void BookInfoPage::loadChapters()
             "background:transparent;"
         );
 
+        // Номер страницы главы (справа). Текст проставляется в
+        // updateChapterPageLabels() после того, как ридер посчитал разметку.
+        auto* pageLbl = new QLabel;
+        pageLbl->setObjectName("chapterPage");
+        pageLbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        pageLbl->setStyleSheet(
+            "color:#8c847a;"
+            "font-size:13px;"
+            "background:transparent;"
+        );
+
         // Клики по содержимому не должны перехватываться дочерними виджетами —
         // вся карточка целиком работает как одна кнопка.
         idx->setAttribute(Qt::WA_TransparentForMouseEvents, true);
@@ -451,6 +462,7 @@ void BookInfoPage::loadChapters()
         h->addWidget(idx);
         h->addWidget(name);
         h->addStretch();
+        h->addWidget(pageLbl, 0, Qt::AlignVCenter);
 
         const int chapterIdx = ch.index;
 
@@ -466,6 +478,26 @@ void BookInfoPage::loadChapters()
     chaptersLoaded = true;
 
     applyChapterHighlight();
+    updateChapterPageLabels();
+}
+
+void BookInfoPage::updateChapterPageLabels()
+{
+    if (chapterRows.isEmpty() || !currentBookId)
+        return;
+
+    const QVector<int> pages =
+        Database::instance().listChapterStartPages(currentBookId);
+
+    for (int i = 0; i < chapterRows.size(); ++i)
+    {
+        auto* lbl = chapterRows[i]->findChild<QLabel*>("chapterPage");
+        if (!lbl)
+            continue;
+
+        const int page = (i < pages.size()) ? pages[i] : -1;
+        lbl->setText(page >= 0 ? QString("стр. %1").arg(page + 1) : QString());
+    }
 }
 
 void BookInfoPage::updateProgress()
@@ -489,6 +521,7 @@ void BookInfoPage::updateProgress()
             QString("%1 глав • %2 страниц").arg(chapterCount).arg(totalPages));
 
     applyChapterHighlight();
+    updateChapterPageLabels();
     refreshSidePanels();
 
     bool isFinished = totalPages > 0 && currentPage >= (totalPages - 1);

@@ -46,12 +46,6 @@
     <ClCompile Include="librarypage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fonts.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="create_db.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="SQLite\sqlite3.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -92,9 +86,6 @@
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fonts.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="database.h">
       <Filter>Header Files</Filter>
     </ClInclude>

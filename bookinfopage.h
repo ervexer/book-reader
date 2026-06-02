@@ -36,6 +36,7 @@ private:
     void updateButtonsState(); // Обновление состояния кнопок
     void setActiveTab(int tabIndex);
     void applyChapterHighlight(); // Подсветка главы, на которой остановились
+    void updateChapterPageLabels(); // Номера страниц глав (из БД)
     void refreshSidePanels();     // Список закладок и цитат справа
     bool eventFilter(QObject* watched, QEvent* event) override;
 

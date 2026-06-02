@@ -1,5 +1,4 @@
 #include "sidebar.h"
-#include "fonts.h"
 #include "database.h"
 #include "fb2parser.h"
 
@@ -20,10 +19,10 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
     setStyleSheet("background:#17130E;");
 
     // ===== FONT =====
-    QFont manrope(Fonts::manrope());
-    manrope.setPointSize(14);
-    manrope.setWeight(QFont::Medium);
-    setFont(manrope);
+    QFont uiFont("Segoe UI");
+    uiFont.setPointSize(14);
+    uiFont.setWeight(QFont::Medium);
+    setFont(uiFont);
 
     // ===== LAYOUT =====
     layoutPtr = new QVBoxLayout(this);

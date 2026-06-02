@@ -96,10 +96,8 @@
   <ItemGroup>
     <ClCompile Include="accountpage.cpp" />
     <ClCompile Include="bookinfopage.cpp" />
-    <ClCompile Include="create_db.cpp" />
     <ClCompile Include="database.cpp" />
     <ClCompile Include="fb2parser.cpp" />
-    <ClCompile Include="fonts.cpp" />
     <ClCompile Include="homepage.cpp" />
     <ClCompile Include="librarypage.cpp" />
     <ClCompile Include="mainwindow.cpp" />
@@ -124,7 +122,6 @@
     <QtMoc Include="bookinfopage.h" />
     <QtMoc Include="accountpage.h" />
     <ClInclude Include="fb2parser.h" />
-    <ClInclude Include="fonts.h" />
     <QtMoc Include="readerwindow.h" />
     <QtMoc Include="librarypage.h" />
     <ClInclude Include="database.h" />

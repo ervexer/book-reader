@@ -877,10 +877,28 @@ void ReaderWindow::buildContentsContent()
     for (int i = 0; i < chapterTitles.size(); ++i)
     {
         const bool active = (i == activeChapter);
-        auto* row = new QPushButton(chapterTitles[i]);
+        auto* row = new QPushButton;
         row->setCursor(Qt::PointingHandCursor);
         row->setMinimumHeight(40);
         row->setStyleSheet(active ? activeStyle : rowStyle);
+
+        // Заголовок слева, номер страницы справа. Метки прозрачны для мыши —
+        // вся карточка работает как одна кнопка.
+        auto* rowLay = new QHBoxLayout(row);
+        rowLay->setContentsMargins(12, 8, 12, 8);
+        rowLay->setSpacing(8);
+
+        auto* nameLbl = new QLabel(chapterTitles[i]);
+        nameLbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        nameLbl->setStyleSheet(QString("background:transparent;border:none;font-size:13px;%1")
+            .arg(active ? "color:#ff8c00;font-weight:bold;" : "color:#cfc7bd;"));
+
+        auto* pageLbl = new QLabel(QString("стр. %1").arg(pageForChapter(i) + 1));
+        pageLbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        pageLbl->setStyleSheet("background:transparent;border:none;color:#8c847a;font-size:12px;");
+
+        rowLay->addWidget(nameLbl, 1);
+        rowLay->addWidget(pageLbl, 0, Qt::AlignVCenter);
 
         const int idx = i;
         connect(row, &QPushButton::clicked, this, [this, idx]() {
@@ -1550,6 +1568,15 @@ void ReaderWindow::closeEvent(QCloseEvent* event)
     {
         Database::instance().updateLastPage(currentBookId, currentPage, nullptr);
         Database::instance().updateLastChapter(currentBookId, chapterForPage(currentPage), nullptr);
+
+        // Сохраняем стартовую страницу каждой главы для отображения на странице
+        // книги (там постраничная разметка не вычисляется).
+        QVector<int> pages;
+        pages.reserve(chapterStartPos.size());
+        for (int i = 0; i < chapterStartPos.size(); ++i)
+            pages.append(pageForChapter(i));
+        Database::instance().updateChapterPages(currentBookId, pages, nullptr);
+
         emit readingFinished(currentBookId);
         emit readingProgressChanged(currentBookId);
     }
