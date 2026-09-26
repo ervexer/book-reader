@@ -19,7 +19,7 @@
 #include <QScreen>
 #include <QFileDialog>
 
-// ==== ПРОСТЫЕ СТРАНИЦЫ ====
+// оформление страниц
 QWidget* createPage(const QString& text)
 {
     QWidget* page = new QWidget;
@@ -33,12 +33,12 @@ QWidget* createPage(const QString& text)
     layout->addWidget(label, 0, Qt::AlignCenter);
     layout->addStretch();
 
-    page->setStyleSheet("background:#110E0A;"); // 👈 фон страниц
+    page->setStyleSheet("background:#110E0A;");
 
     return page;
 }
 
-// ==== СТРАНИЦА СПРАВКИ ====
+// справка
 QWidget* createHelpPage()
 {
     auto* page = new QWidget;
@@ -65,7 +65,7 @@ QWidget* createHelpPage()
     content->setStyleSheet("background:transparent;");
 
     auto* col = new QVBoxLayout(content);
-    col->setContentsMargins(40, 32, 40, 40);
+    col->setContentsMargins(40, 10, 40, 40);
     col->setSpacing(0);
 
     auto* text = new QLabel;
@@ -75,71 +75,77 @@ QWidget* createHelpPage()
     text->setMaximumWidth(900);
     text->setStyleSheet("background:transparent;");
     text->setText(R"HTML(
-<div style="color:#d2c7bb; font-size:15px; line-height:160%;">
+<div style="color:#d2c7bb; font-size:15px; line-height:155%;">
   <div style="color:#ff8c00; font-size:30px; font-weight:bold;">Справка</div>
   <div style="color:#8c847a; font-size:14px; margin-top:6px;">
-    Краткое руководство по возможностям приложения для чтения книг&nbsp;FB2.
+    Руководство по работе с программой для чтения книг формата&nbsp;FB2.
   </div>
 
-  <div style="color:#ff8c00; font-size:21px; font-weight:bold; margin-top:26px;">🏠 Главная</div>
-  <p style="margin-top:6px;">Стартовый экран с быстрым доступом к чтению.</p>
-  <ul>
-    <li>Крупный баннер с книгой, которую вы читали последней — нажмите, чтобы сразу продолжить чтение.</li>
-    <li>Список недавних книг — открывает страницу книги с информацией о ней.</li>
-    <li>Действия с карточек (избранное, удаление) сразу отражаются в библиотеке.</li>
+  <div style="color:#ff8c00; font-size:20px; font-weight:bold; margin-top:24px;">Боковое меню и панель окна</div>
+  <p style="margin-top:4px;">Слева расположено меню для перехода между разделами.</p>
+  <ul style="margin-top:2px;">
+    <li>Кнопка-меню в левом верхнем углу — сворачивает и разворачивает боковую панель.</li>
+    <li>«Главная», «Библиотека», «Избранное» — переключают разделы программы.</li>
+    <li>«Добавить книгу» — открывает выбор файла для добавления книги.</li>
+    <li>«Аккаунт» — вход и регистрация, «Справка» — этот экран.</li>
+    <li>Кнопки в правом верхнем углу — свернуть, развернуть и закрыть окно.</li>
   </ul>
 
-  <div style="color:#ff8c00; font-size:21px; font-weight:bold; margin-top:22px;">📚 Библиотека</div>
-  <p style="margin-top:6px;">Все добавленные книги в одном месте.</p>
-  <ul>
-    <li>Счётчик общего количества книг.</li>
-    <li>Поиск по названию и автору.</li>
-    <li>Сортировка по названию, автору, дате добавления и прогрессу.</li>
-    <li>Переключение вида: сетка обложек или список.</li>
-    <li>Меню каждой книги: «В избранное», «Отметить прочитанной», «Удалить» (с подтверждением).</li>
+  <div style="color:#ff8c00; font-size:20px; font-weight:bold; margin-top:18px;">Главная</div>
+  <p style="margin-top:4px;">На этом экране отображаются недавно читаемые и недавно добавленные книги.</p>
+  <ul style="margin-top:2px;">
+    <li>Верхний блок — последняя открытая книга с её названием, автором и описанием.</li>
+    <li>«Продолжить читать» — открывает окно чтения с того места, где вы остановились.</li>
+    <li>«Подробнее» — открывает окно информации о книге.</li>
+    <li>Ниже — вкладки «Недавно читали» и «Недавно добавлено» со списком книг.</li>
+    <li>Нажатие на книгу открывает окно информации о ней.</li>
+    <li>Кнопка меню на карточке открывает действия: «В избранное», «Отметить прочитанным», «Удалить».</li>
   </ul>
 
-  <div style="color:#ff8c00; font-size:21px; font-weight:bold; margin-top:22px;">🗂 Избранное</div>
-  <p style="margin-top:6px;">Те же возможности, что и в библиотеке, но показываются только книги,
-  отмеченные как избранные. Состояние синхронизируется с библиотекой и главной.</p>
-
-  <div style="color:#ff8c00; font-size:21px; font-weight:bold; margin-top:22px;">➕ Добавить книгу</div>
-  <p style="margin-top:6px;">Кнопка в боковом меню открывает выбор файла. Поддерживается формат
-  <b>.fb2</b>: извлекаются название, автор, обложка и текст по главам.</p>
-
-  <div style="color:#ff8c00; font-size:21px; font-weight:bold; margin-top:22px;">📖 Страница книги</div>
-  <p style="margin-top:6px;">Открывается при выборе книги — вся информация и прогресс.</p>
-  <ul>
-    <li>Обложка, название, автор, число глав и страниц.</li>
-    <li>«Начать / Продолжить читать» — открывает книгу в окне читалки.</li>
-    <li>«Завершить чтение» — отмечает книгу прочитанной (или сбрасывает прогресс).</li>
-    <li>Полоса прогресса с процентом и числом прочитанных страниц.</li>
-    <li>Содержание: список глав; глава, на которой вы остановились, подсвечена. Клик по главе открывает её.</li>
-    <li>Справа — вкладки «Закладки» и «Цитаты». Клик по записи открывает книгу на нужной странице, «✕» — удаляет.</li>
-    <li>Стрелка «‹» в верхнем меню — возврат на предыдущую вкладку.</li>
+  <div style="color:#ff8c00; font-size:20px; font-weight:bold; margin-top:18px;">Библиотека</div>
+  <p style="margin-top:4px;">На этом экране собраны все добавленные книги, сверху — их количество.</p>
+  <ul style="margin-top:2px;">
+    <li>Поле поиска — находит книгу по названию или автору.</li>
+    <li>Кнопка сортировки — по дате добавления, автору, названию или прогрессу.</li>
+    <li>Кнопки вида — переключают между сеткой обложек и списком.</li>
+    <li>Кнопка меню на книге открывает действия: «В избранное», «Отметить прочитанным», «Удалить».</li>
+    <li>Нажатие на книгу открывает окно информации о ней.</li>
   </ul>
 
-  <div style="color:#ff8c00; font-size:21px; font-weight:bold; margin-top:22px;">📕 Читалка</div>
-  <p style="margin-top:6px;">Отдельное окно для чтения. Можно открыть несколько книг одновременно —
-  каждая в своём окне.</p>
-  <ul>
-    <li>Текст разбит на страницы и показывается разворотом по две страницы.</li>
-    <li>Перелистывание: колесо мыши, клик по левой/правой половине или по краю экрана.</li>
-    <li>Верхнее меню: «О книге», «Настройки», флажок закладки, вкладки «Содержание», «Закладки», «Цитаты».</li>
-    <li>Настройки чтения: шрифт, размер текста, межстрочный интервал, выравнивание и сброс к значениям по умолчанию.</li>
-    <li>Закладка: флажок добавляет/убирает закладку на текущей странице (оранжевый — закладка стоит).</li>
-    <li>Цитаты: выделите текст мышью и выберите цвет. Правый клик по цитате — изменить цвет или удалить.</li>
-    <li>Внизу — индикатор прогресса. Окно сворачивается, разворачивается и закрывается своими кнопками.</li>
-    <li>Прогресс и последняя открытая страница сохраняются автоматически при закрытии.</li>
+  <div style="color:#ff8c00; font-size:20px; font-weight:bold; margin-top:18px;">Избранное</div>
+  <p style="margin-top:4px;">На этом экране показаны только книги, отмеченные как избранные.</p>
+  <ul style="margin-top:2px;">
+    <li>Возможности поиска, сортировки и вида — те же, что в библиотеке.</li>
+    <li>«Убрать из избранного» в меню книги убирает её из этого списка.</li>
   </ul>
 
-  <div style="color:#ff8c00; font-size:21px; font-weight:bold; margin-top:22px;">👤 Аккаунт</div>
-  <p style="margin-top:6px;">Регистрация и вход в личный аккаунт.</p>
-  <ul>
-    <li>В гостевом режиме доступна форма входа и регистрации (логин и пароль).</li>
-    <li>После входа книги, добавленные в гостевом режиме, привязываются к вашему аккаунту.</li>
-    <li>В аккаунте показывается профиль и кнопка «Выйти из аккаунта».</li>
-    <li>После выхода приложение возвращается в гостевой режим — видны только гостевые книги.</li>
+  <div style="color:#ff8c00; font-size:20px; font-weight:bold; margin-top:18px;">Окно информации о книге</div>
+  <p style="margin-top:4px;">В этом окне показаны сведения о книге и прогресс чтения.</p>
+  <ul style="margin-top:2px;">
+    <li>Обложка, название, автор, число глав и страниц, полоса прогресса.</li>
+    <li>«Начать / Продолжить читать» — открывает окно чтения.</li>
+    <li>«Завершить чтение» — отмечает книгу прочитанной.</li>
+    <li>В содержании указаны главы с номерами страниц; нажатие открывает главу.</li>
+    <li>Справа — закладки и цитаты; нажатие открывает нужную страницу.</li>
+    <li>Стрелка «назад» сверху — возврат к предыдущему разделу.</li>
+  </ul>
+
+  <div style="color:#ff8c00; font-size:20px; font-weight:bold; margin-top:18px;">Окно чтения</div>
+  <p style="margin-top:4px;">На этом экране выполняется чтение книги.</p>
+  <ul style="margin-top:2px;">
+    <li>Текст показывается разворотом из двух страниц.</li>
+    <li>Перелистывание — колесо мыши или нажатие по краям разворота.</li>
+    <li>Кнопки верхней панели — справка, сведения о книге, настройки, закладка, содержание, закладки, цитаты.</li>
+    <li>Кнопка-флажок добавляет или убирает закладку на текущей странице.</li>
+    <li>Прогресс и последняя страница сохраняются автоматически при закрытии окна.</li>
+  </ul>
+
+  <div style="color:#ff8c00; font-size:20px; font-weight:bold; margin-top:18px;">Аккаунт</div>
+  <p style="margin-top:4px;">На этом экране выполняется регистрация и вход в личный аккаунт.</p>
+  <ul style="margin-top:2px;">
+    <li>«Зарегистрироваться» — создаёт аккаунт по логину и паролю.</li>
+    <li>«Войти» — выполняет вход; книги из гостевого режима привязываются к аккаунту.</li>
+    <li>«Выйти из аккаунта» — возвращает программу в гостевой режим.</li>
   </ul>
 </div>
 )HTML");
@@ -156,19 +162,9 @@ QWidget* createHelpPage()
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
-    // УБИРАЕМ СИСТЕМНОЕ ОКНО (флаги ставим ДО показа — иначе смена флагов
-    // после showMaximized() сбивает состояние окна и кнопка "развернуть"
-    // не возвращает его в оконный режим).
     setWindowFlags(Qt::FramelessWindowHint);
-
-    // Минимальный размер, чтобы содержимое не съезжало в оконном режиме.
     setMinimumSize(1024, 680);
-    // Геометрия для оконного режима (на неё возвращает кнопка "развернуть").
     resize(1280, 800);
-
-    // Для безрамочного окна не используем showMaximized()/showNormal() —
-    // они работают ненадёжно. Вместо этого управляем геометрией вручную:
-    // «развёрнуто» = занять рабочую область экрана, «окно» = центр. прямоугольник.
     {
         const int w = 1280, h = 800;
         QRect avail = QApplication::primaryScreen()->availableGeometry();
@@ -176,56 +172,52 @@ MainWindow::MainWindow(QWidget* parent)
             avail.x() + (avail.width() - w) / 2,
             avail.y() + (avail.height() - h) / 2,
             w, h);
-        setGeometry(avail);   // стартуем в «развёрнутом» виде
+        setGeometry(avail); // изначально в развернутом виде
     }
     windowMaximized = true;
 
     QWidget* central = new QWidget;
     setCentralWidget(central);
 
-    // ===== ГЛАВНЫЙ ВЕРТИКАЛЬНЫЙ LAYOUT =====
+    // главный layout
     QVBoxLayout* root = new QVBoxLayout(central);
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
-    // ===== TOP BAR =====
+    // верхнее меню
     TopBar* topBar = new TopBar;
     topBarWidget = topBar;
-    topBar->installEventFilter(this); // перетаскивание окна за панель
+    topBar->installEventFilter(this); // перетаскивание окна
 
-    // ===== ОСНОВНОЙ КОНТЕНТ =====
+    // основной контент страницы
     QHBoxLayout* mainLayout = new QHBoxLayout;
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // ===== Sidebar =====
     sidebar = new Sidebar;
-
-    // ===== Страницы =====
+    // страницы
     stack = new QStackedWidget;
 
     auto* homePage = new HomePage;
     auto* libraryPage = new LibraryPage;
-    auto* favoritesPage = new LibraryPage(/*favoritesOnly*/ true);
+    auto* favoritesPage = new LibraryPage(true);
     auto* accountPage = new AccountPage;
     stack->addWidget(homePage);
     stack->addWidget(libraryPage);
     stack->addWidget(favoritesPage);
-    stack->addWidget(accountPage);             // index 3 — Аккаунт
-    stack->addWidget(createHelpPage());        // index 4 — Справка
+    stack->addWidget(accountPage);
+    stack->addWidget(createHelpPage());
 
     bookInfoPage = new BookInfoPage;
-    stack->addWidget(bookInfoPage); // index 5 (открывается по указателю)
+    stack->addWidget(bookInfoPage);
 
-    // ===== ДОБАВЛЯЕМ В layout =====
     mainLayout->addWidget(sidebar);
-    //mainLayout->addWidget(scroll);
     mainLayout->addWidget(stack);
 
     root->addWidget(topBar);
     root->addLayout(mainLayout);
 
-    // ===== ПЕРЕКЛЮЧЕНИЕ СТРАНИЦ =====
+    // переключение страниц
     connect(sidebar, &Sidebar::pageSelected,
         this, [=](int index) {
             lastNonBookPageIndex = index;
@@ -236,7 +228,7 @@ MainWindow::MainWindow(QWidget* parent)
         stack->setCurrentIndex(lastNonBookPageIndex);
     });
 
-    // Кнопка "назад" в верхнем меню видна только на странице книги.
+    // кнопка назад
     connect(stack, &QStackedWidget::currentChanged, this, [=](int) {
         topBar->setBackVisible(stack->currentWidget() == bookInfoPage);
     });
@@ -270,7 +262,6 @@ MainWindow::MainWindow(QWidget* parent)
             openReader(bookId, -1, -1);
         });
 
-
     auto openBookInfo = [this](int bookId) {
         bookInfoPage->setBookId(bookId);
         stack->setCurrentWidget(bookInfoPage);
@@ -290,7 +281,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(homePage, &HomePage::booksChanged, libraryPage, &LibraryPage::reloadBooks);
     connect(homePage, &HomePage::booksChanged, favoritesPage, &LibraryPage::reloadBooks);
 
-    // Вход/выход из аккаунта меняет набор книг (гостевые ↔ привязанные к учётке).
+    // Вход/выход из аккаунта меняет набор книг (гостевые и привязанные к учётке).
     auto reloadAllBooks = [homePage, libraryPage, favoritesPage]() {
         homePage->reloadBooks();
         libraryPage->reloadBooks();
@@ -307,7 +298,7 @@ MainWindow::MainWindow(QWidget* parent)
         openBookInfo(bookId);
     });
 
-    // ===== КНОПКИ ОКНА =====
+    // кнопки верхнего меню
     connect(topBar, &TopBar::closeClicked, this, &QWidget::close);
 
     connect(topBar, &TopBar::minimizeClicked,
@@ -315,15 +306,14 @@ MainWindow::MainWindow(QWidget* parent)
 
     connect(topBar, &TopBar::maximizeClicked, this, [this]() {
 
-        // Управляем геометрией вручную (безрамочное окно): без showMaximized().
         if (windowMaximized)
         {
-            setGeometry(normalGeom);   // в оконный режим
+            setGeometry(normalGeom); // в оконный режим
             windowMaximized = false;
         }
         else
         {
-            normalGeom = geometry();   // запоминаем оконную геометрию
+            normalGeom = geometry(); // запоминаем оконную геометрию
             setGeometry(QApplication::primaryScreen()->availableGeometry());
             windowMaximized = true;
         }
@@ -338,8 +328,6 @@ MainWindow::MainWindow(QWidget* parent)
     connect(topBar, &TopBar::toggleSidebarClicked, this, [=]() {
         topBar->setBackOffset(sidebar->width());
     });
-
-    // ===== СТИЛЬ =====
     setStyleSheet("background:#110E0A;"); //общий фон
 }
 

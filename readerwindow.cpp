@@ -244,10 +244,15 @@ ReaderWindow::ReaderWindow(QWidget* parent)
         return b;
     };
 
+    helpBtn = makeIconBtn("image icon/interrogation.png");
+    helpBtn->installEventFilter(this); // смена иконки на оранжевую при наведении
     menuBtn = makeIconBtn("image icon/menu.png");
+    menuBtn->installEventFilter(this);
     settingsBtn = makeIconBtn("image icon/settings.png");
+    settingsBtn->installEventFilter(this);
     bookmarkBtn = makeIconBtn("image icon/bookmark.png");
 
+    top->addWidget(helpBtn);
     top->addWidget(menuBtn);
     top->addWidget(settingsBtn);
     top->addWidget(bookmarkBtn);
@@ -307,6 +312,7 @@ ReaderWindow::ReaderWindow(QWidget* parent)
         }
         });
 
+    connect(helpBtn, &QPushButton::clicked, this, [this]() { openLeftPanel(PanelMode::Help); });
     connect(menuBtn, &QPushButton::clicked, this, [this]() { openLeftPanel(PanelMode::Info); });
     connect(settingsBtn, &QPushButton::clicked, this, [this]() { toggleSettingsPanel(); });
     connect(bookmarkBtn, &QPushButton::clicked, this, [this]() { toggleBookmark(); });
@@ -690,6 +696,45 @@ void ReaderWindow::updateUi()
 
 bool ReaderWindow::eventFilter(QObject* obj, QEvent* event)
 {
+    // Иконка справки: оранжевая при наведении (или когда панель открыта).
+    if (obj == helpBtn)
+    {
+        if (event->type() == QEvent::Enter)
+            helpBtn->setIcon(QIcon("image icon/interrogation-orange.png"));
+        else if (event->type() == QEvent::Leave)
+        {
+            const bool active = leftPanel->isVisible() && panelMode == PanelMode::Help;
+            helpBtn->setIcon(QIcon(active ? "image icon/interrogation-orange.png"
+                                          : "image icon/interrogation.png"));
+        }
+    }
+
+    // Иконка меню: оранжевая при наведении (или когда открыта панель информации).
+    if (obj == menuBtn)
+    {
+        if (event->type() == QEvent::Enter)
+            menuBtn->setIcon(QIcon("image icon/menu_orange.png"));
+        else if (event->type() == QEvent::Leave)
+        {
+            const bool active = leftPanel->isVisible() && panelMode == PanelMode::Info;
+            menuBtn->setIcon(QIcon(active ? "image icon/menu_orange.png"
+                                          : "image icon/menu.png"));
+        }
+    }
+
+    // Иконка настроек: оранжевая при наведении (или когда открыта панель настроек).
+    if (obj == settingsBtn)
+    {
+        if (event->type() == QEvent::Enter)
+            settingsBtn->setIcon(QIcon("image icon/settings_orange.png"));
+        else if (event->type() == QEvent::Leave)
+        {
+            settingsBtn->setIcon(QIcon(settingsPanel->isVisible()
+                                           ? "image icon/settings_orange.png"
+                                           : "image icon/settings.png"));
+        }
+    }
+
     // Перетаскивание окна ридера за верхнюю панель (только в оконном режиме).
     if (obj == topBarWidget)
     {
@@ -818,6 +863,7 @@ void ReaderWindow::rebuildPanelContent()
 
     switch (panelMode)
     {
+    case PanelMode::Help:      panelTitle->setText("Справка");      buildHelpContent();      break;
     case PanelMode::Info:      panelTitle->setText("О книге");      buildInfoContent();      break;
     case PanelMode::Contents:  panelTitle->setText("Содержание");   buildContentsContent();  break;
     case PanelMode::Bookmarks: panelTitle->setText("Закладки");     buildBookmarksContent(); break;
@@ -826,6 +872,40 @@ void ReaderWindow::rebuildPanelContent()
     }
 
     panelLayout->addStretch();
+}
+
+void ReaderWindow::buildHelpContent()
+{
+    auto* text = new QLabel;
+    text->setWordWrap(true);
+    text->setTextFormat(Qt::RichText);
+    text->setAlignment(Qt::AlignTop);
+    text->setStyleSheet("background:transparent;");
+    text->setText(R"HTML(
+<div style="color:#d2c7bb; font-size:14px; line-height:155%;">
+  <div style="color:#ff8c00; font-size:16px; font-weight:bold;">Навигация</div>
+  <p style="margin-top:2px;">Колесо мыши, нажатие на половину разворота или на поле у края —
+  переход между страницами.</p>
+
+  <div style="color:#ff8c00; font-size:16px; font-weight:bold; margin-top:14px;">Верхняя панель</div>
+  <p style="margin-top:2px;">«О книге» — сведения о произведении. «Настройки» — шрифт, размер,
+  интервал, выравнивание. Закладка — отметить текущую страницу.</p>
+
+  <div style="color:#ff8c00; font-size:16px; font-weight:bold; margin-top:14px;">Содержание</div>
+  <p style="margin-top:2px;">Список глав с номерами страниц. Выбор главы — переход к ней,
+  текущая выделена.</p>
+
+  <div style="color:#ff8c00; font-size:16px; font-weight:bold; margin-top:14px;">Закладки и цитаты</div>
+  <p style="margin-top:2px;">Выбор записи — переход к странице. Цитата: выделите текст и
+  выберите цвет; смена цвета и удаление — через контекстное меню.</p>
+
+  <div style="color:#ff8c00; font-size:16px; font-weight:bold; margin-top:14px;">Прогресс</div>
+  <p style="margin-top:2px;">Последняя страница и прогресс сохраняются автоматически при
+  закрытии окна.</p>
+</div>
+)HTML");
+
+    panelLayout->addWidget(text);
 }
 
 void ReaderWindow::buildInfoContent()
@@ -1063,6 +1143,22 @@ void ReaderWindow::updateTabHighlight()
         "QPushButton{background:transparent;border:none;color:#ff8c00;font-size:13px;font-weight:bold;padding:6px 12px;}";
 
     const bool open = leftPanel->isVisible();
+
+    // Иконка справки: оранжевая, пока открыта её панель.
+    helpBtn->setIcon(QIcon(open && panelMode == PanelMode::Help
+        ? "image icon/interrogation-orange.png"
+        : "image icon/interrogation.png"));
+
+    // Иконка меню: оранжевая, пока открыта панель информации.
+    menuBtn->setIcon(QIcon(open && panelMode == PanelMode::Info
+        ? "image icon/menu_orange.png"
+        : "image icon/menu.png"));
+
+    // Иконка настроек: оранжевая, пока открыта панель настроек.
+    settingsBtn->setIcon(QIcon(settingsPanel->isVisible()
+        ? "image icon/settings_orange.png"
+        : "image icon/settings.png"));
+
     tabContents->setStyleSheet(open && panelMode == PanelMode::Contents ? active : base);
     tabBookmarks->setStyleSheet(open && panelMode == PanelMode::Bookmarks ? active : base);
     tabQuotes->setStyleSheet(open && panelMode == PanelMode::Quotes ? active : base);
@@ -1092,7 +1188,7 @@ void ReaderWindow::buildSettingsPanel()
     closeX->setStyleSheet(
         "QPushButton{background:transparent;border:none;color:#8c847a;font-size:14px;}"
         "QPushButton:hover{color:#d2c7bb;}");
-    connect(closeX, &QPushButton::clicked, this, [this]() { settingsPanel->hide(); });
+    connect(closeX, &QPushButton::clicked, this, [this]() { settingsPanel->hide(); updateTabHighlight(); });
     header->addWidget(title);
     header->addStretch();
     header->addWidget(closeX);
@@ -1207,11 +1303,18 @@ void ReaderWindow::buildSettingsPanel()
     {
         auto* row = new QHBoxLayout;
         row->setSpacing(8);
-        const QStringList labels = { "◧", "▥", "◨", "▦" };
+        const QStringList icons = {
+            "image icon/align-left.png",
+            "image icon/align-center.png",
+            "image icon/symbol.png",
+            "image icon/align-justify.png"
+        };
         const QStringList tips = { "Слева", "По центру", "Справа", "По ширине" };
         for (int i = 0; i < 4; ++i)
         {
-            auto* b = new QPushButton(labels[i]);
+            auto* b = new QPushButton;
+            b->setIcon(QIcon(icons[i]));
+            b->setIconSize(QSize(20, 20));
             b->setToolTip(tips[i]);
             b->setCursor(Qt::PointingHandCursor);
             b->setFixedHeight(38);
@@ -1251,12 +1354,14 @@ void ReaderWindow::toggleSettingsPanel()
     if (settingsPanel->isVisible())
     {
         settingsPanel->hide();
+        updateTabHighlight();
         return;
     }
     closeLeftPanel();
     refreshSettingsControls();
     settingsPanel->show();
     settingsPanel->raise();
+    updateTabHighlight();
 }
 
 void ReaderWindow::applySettingsLive()

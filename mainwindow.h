@@ -38,5 +38,5 @@ private:
     bool isWindowedMode = false;
 
     bool windowMaximized = true; // текущее состояние окна (развёрнуто/оконный режим)
-    QRect normalGeom;            // геометрия оконного режима
+    QRect normalGeom; // геометрия оконного режима
 };

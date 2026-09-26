@@ -82,7 +82,7 @@ signals:
     void readingProgressChanged(int bookId);
 
 private:
-    enum class PanelMode { None, Info, Contents, Bookmarks, Quotes };
+    enum class PanelMode { None, Help, Info, Contents, Bookmarks, Quotes };
 
     void rebuildPages();
     void applyFormatting();
@@ -103,6 +103,7 @@ private:
     void closeLeftPanel();
     void rebuildPanelContent();
     void clearPanelContent();
+    void buildHelpContent();
     void buildInfoContent();
     void buildContentsContent();
     void buildBookmarksContent();
@@ -135,11 +136,11 @@ private:
     int pageCount = 0;
 
     QTextDocument* doc = nullptr;
-    QVector<int> chapterStartPos; // позиция начала каждой главы в общем документе
-    QStringList chapterTitles;    // заголовки глав (для закладок/содержания)
-    int requestedChapter = 0;     // глава/режим, запрошенный при открытии (-1 = продолжить)
-    int requestedPage = -1;       // конкретная страница (>=0) — приоритетнее главы
-    bool hasPendingStart = false; // нужно ли ещё установить стартовую страницу
+    QVector<int> chapterStartPos;   // позиция начала каждой главы в общем документе
+    QStringList chapterTitles;      // заголовки глав (для закладок/содержания)
+    int requestedChapter = 0;       // глава/режим, запрошенный при открытии (-1 = продолжить)
+    int requestedPage = -1;         // конкретная страница (>=0) — приоритетнее главы
+    bool hasPendingStart = false;   // нужно ли ещё установить стартовую страницу
 
     bool winMaximized = true;     // состояние окна (развёрнуто/оконный режим)
     QRect normalGeom;             // геометрия оконного режима
@@ -153,6 +154,7 @@ private:
     QWidget* central = nullptr;
 
     // Верхняя панель
+    QPushButton* helpBtn = nullptr;
     QPushButton* menuBtn = nullptr;
     QPushButton* settingsBtn = nullptr;
     QPushButton* bookmarkBtn = nullptr;

@@ -22,7 +22,6 @@
 
 #include <functional>
 
-// ===== Действия над карточкой книги (как в библиотеке) =====
 struct HomeCardActions
 {
     std::function<void()> open;
@@ -65,7 +64,7 @@ static void fillHomeCardMenu(QMenu* menu, const HomeCardActions& a)
     QObject::connect(del, &QAction::triggered, [cb = a.remove]() { if (cb) cb(); });
 }
 
-// ==== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ОБЛОЖКИ ====
+// функция для загрузки обложки
 static QPixmap loadCoverPixmap(int bookId, const QSize& targetSize)
 {
     // Кеш по bookId + размеру: при reloadBooks (лайк/прочитано/удаление) обложки
@@ -104,7 +103,7 @@ protected:
     }
 };
 
-// ==== КАРТОЧКА КНИГИ (С ОБЛОЖКОЙ) ====
+// карточка книги
 QWidget* createBookCard(const DbBook& book, const HomeCardActions& actions)
 {
     std::function<void()> onClick = actions.open;
@@ -117,7 +116,7 @@ QWidget* createBookCard(const DbBook& book, const HomeCardActions& actions)
     vbox->setContentsMargins(0, 0, 0, 0);
     vbox->setSpacing(6);
 
-    // ===== КОНТЕЙНЕР ДЛЯ ОБЛОЖКИ С ПРОГРЕССОМ =====
+    // обложка с прогрессом
     QWidget* coverContainer = new QWidget;
     coverContainer->setFixedSize(140, 200);
 

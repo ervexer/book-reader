@@ -84,9 +84,7 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
     layoutPtr->addStretch();
 
     addMenuItem(" Аккаунт", "image icon/profile.png", "image icon/profile_orange.png", 3);
-    // Для «Справки» нет отдельной иконки — используем один и тот же файл,
-    // чтобы значок не пропадал в активном состоянии (подсветится текст).
-    addMenuItem(" Справка", "image icon/list.png", "image icon/list.png", 4);
+    addMenuItem(" Справка", "image icon/interrogation.png", "image icon/interrogation-orange.png", 4);
     setActive(0);
 }
 
