@@ -1,5 +1,5 @@
-#include "bookinfopage.h"
-#include "database.h"
+#include "ui/pages/bookinfopage.h"
+#include "data/database.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

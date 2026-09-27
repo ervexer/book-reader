@@ -1,6 +1,6 @@
 // fb2parser.cpp
 
-#include "fb2parser.h"
+#include "parsers/fb2parser.h"
 
 #include <QFile>
 #include <QFileInfo>

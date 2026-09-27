@@ -4,7 +4,7 @@
 #include <QVector>
 #include <QByteArray>
 
-#include "fb2parser.h"
+#include "parsers/fb2parser.h"
 
 struct sqlite3;
 

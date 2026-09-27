@@ -1,5 +1,5 @@
-#include "homepage.h"
-#include "database.h"
+#include "ui/pages/homepage.h"
+#include "data/database.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -172,7 +172,7 @@ QWidget* createBookCard(const DbBook& book, const HomeCardActions& actions)
     QToolButton* menuBtn = new QToolButton(coverContainer);
     menuBtn->setCursor(Qt::PointingHandCursor);
     menuBtn->setFixedSize(28, 28);
-    menuBtn->setIcon(QIcon("image icon/menu-dots.png"));
+    menuBtn->setIcon(QIcon(":/icons/menu-dots.png"));
     menuBtn->setIconSize(QSize(16, 16));
     menuBtn->setPopupMode(QToolButton::InstantPopup);
     menuBtn->setStyleSheet(R"(
@@ -282,7 +282,7 @@ HomePage::HomePage(QWidget* parent)
     banner->setStyleSheet(R"(
         QFrame {
             border-radius:16px;
-            background-image: url(image icon/book image.png);
+            background-image: url(":/icons/book image.png");
             background-position: center;
         }
     )");

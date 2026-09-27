@@ -1,8 +1,8 @@
-#include "database.h"
+#include "data/database.h"
 
-#include "fb2parser.h"
+#include "parsers/fb2parser.h"
 
-#include <SQLite/sqlite3.h>
+#include <sqlite/sqlite3.h>
 
 #include <QDateTime>
 #include <QCryptographicHash>

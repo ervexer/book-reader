@@ -4,7 +4,7 @@
 #include <QVector>
 #include <QString>
 
-#include "database.h"
+#include "data/database.h"
 
 class QStackedWidget;
 class QPushButton;

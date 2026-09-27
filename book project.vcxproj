@@ -70,6 +70,9 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -85,6 +88,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -94,37 +100,37 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="accountpage.cpp" />
-    <ClCompile Include="bookinfopage.cpp" />
-    <ClCompile Include="database.cpp" />
-    <ClCompile Include="fb2parser.cpp" />
-    <ClCompile Include="homepage.cpp" />
-    <ClCompile Include="librarypage.cpp" />
-    <ClCompile Include="mainwindow.cpp" />
-    <ClCompile Include="readerwindow.cpp" />
-    <ClCompile Include="sidebar.cpp" />
-    <ClCompile Include="SQLite\sqlite3.c" />
-    <ClCompile Include="topbar.cpp" />
-    <QtRcc Include="bookproject.qrc" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\ui\pages\accountpage.cpp" />
+    <ClCompile Include="src\ui\pages\bookinfopage.cpp" />
+    <ClCompile Include="src\data\database.cpp" />
+    <ClCompile Include="src\parsers\fb2parser.cpp" />
+    <ClCompile Include="src\ui\pages\homepage.cpp" />
+    <ClCompile Include="src\ui\pages\librarypage.cpp" />
+    <ClCompile Include="src\ui\windows\mainwindow.cpp" />
+    <ClCompile Include="src\ui\windows\readerwindow.cpp" />
+    <ClCompile Include="src\ui\widgets\sidebar.cpp" />
+    <ClCompile Include="third_party\sqlite\sqlite3.c" />
+    <ClCompile Include="src\ui\widgets\topbar.cpp" />
+    <QtRcc Include="resources\bookproject.qrc" />
+    <ClCompile Include="src\app\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="mainwindow.h" />
-    <QtMoc Include="sidebar.h" />
+    <QtMoc Include="src\ui\windows\mainwindow.h" />
+    <QtMoc Include="src\ui\widgets\sidebar.h" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="topbar.h" />
+    <QtMoc Include="src\ui\widgets\topbar.h" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="homepage.h" />
+    <QtMoc Include="src\ui\pages\homepage.h" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="bookinfopage.h" />
-    <QtMoc Include="accountpage.h" />
-    <ClInclude Include="fb2parser.h" />
-    <QtMoc Include="readerwindow.h" />
-    <QtMoc Include="librarypage.h" />
-    <ClInclude Include="database.h" />
+    <QtMoc Include="src\ui\pages\bookinfopage.h" />
+    <QtMoc Include="src\ui\pages\accountpage.h" />
+    <ClInclude Include="src\parsers\fb2parser.h" />
+    <QtMoc Include="src\ui\windows\readerwindow.h" />
+    <QtMoc Include="src\ui\pages\librarypage.h" />
+    <ClInclude Include="src\data\database.h" />
     <!-- bookinfopage.h / readerwindow.h are listed under QtMoc (Q_OBJECT), keep them there only -->
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

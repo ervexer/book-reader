@@ -8,7 +8,7 @@
 #include <QRect>
 #include <QPoint>
 
-#include "database.h"
+#include "data/database.h"
 
 class QLabel;
 class QPushButton;

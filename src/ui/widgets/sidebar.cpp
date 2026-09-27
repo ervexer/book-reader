@@ -1,6 +1,6 @@
-#include "sidebar.h"
-#include "database.h"
-#include "fb2parser.h"
+#include "ui/widgets/sidebar.h"
+#include "data/database.h"
+#include "parsers/fb2parser.h"
 
 #include <QVBoxLayout>
 #include <QPushButton>
@@ -36,9 +36,9 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
     activeLine->hide();
 
     // ===== MENU =====
-    addMenuItem(" Главная", "image icon/home.png", "image icon/home_orange.png", 0);
-    addMenuItem(" Библиотека", "image icon/library.png", "image icon/library_orange.png", 1);
-    addMenuItem(" Избранное", "image icon/collection.png", "image icon/collection_orange.png", 2);
+    addMenuItem(" Главная", ":/icons/home.png", ":/icons/home_orange.png", 0);
+    addMenuItem(" Библиотека", ":/icons/library.png", ":/icons/library_orange.png", 1);
+    addMenuItem(" Избранное", ":/icons/collection.png", ":/icons/collection_orange.png", 2);
 
     layoutPtr->addSpacing(20);
 
@@ -83,8 +83,8 @@ Sidebar::Sidebar(QWidget* parent) : QWidget(parent)
     layoutPtr->addWidget(addBtn);
     layoutPtr->addStretch();
 
-    addMenuItem(" Аккаунт", "image icon/profile.png", "image icon/profile_orange.png", 3);
-    addMenuItem(" Справка", "image icon/interrogation.png", "image icon/interrogation-orange.png", 4);
+    addMenuItem(" Аккаунт", ":/icons/profile.png", ":/icons/profile_orange.png", 3);
+    addMenuItem(" Справка", ":/icons/interrogation.png", ":/icons/interrogation-orange.png", 4);
     setActive(0);
 }
 
@@ -168,7 +168,7 @@ void Sidebar::toggleSidebar()
         if (addBtn)
         {
             addBtn->setText("");
-            addBtn->setIcon(QIcon("image icon/plus.png"));
+            addBtn->setIcon(QIcon(":/icons/plus.png"));
             addBtn->setIconSize(QSize(20, 20));
         }
     }

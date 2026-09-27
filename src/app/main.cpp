@@ -1,6 +1,6 @@
 #include <QApplication>
 #include <QProxyStyle>
-#include "mainwindow.h"
+#include "ui/windows/mainwindow.h"
 
 // Стиль, убирающий пунктирную рамку фокуса со всех виджетов приложения.
 class NoFocusRectStyle : public QProxyStyle

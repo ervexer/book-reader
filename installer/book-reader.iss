@@ -31,7 +31,8 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Всё содержимое подготовленной папки deploy (exe, DLL Qt, плагины, image icon, рантайм)
+; Всё содержимое подготовленной папки deploy (exe, DLL Qt, плагины, рантайм).
+; Иконки интерфейса встроены в exe через Qt-ресурсы.
 Source: "..\deploy\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]

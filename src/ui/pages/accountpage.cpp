@@ -1,5 +1,5 @@
-#include "accountpage.h"
-#include "database.h"
+#include "ui/pages/accountpage.h"
+#include "data/database.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

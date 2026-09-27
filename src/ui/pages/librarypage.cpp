@@ -1,5 +1,5 @@
-#include "librarypage.h"
-#include "database.h"
+#include "ui/pages/librarypage.h"
+#include "data/database.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -184,7 +184,7 @@ static QWidget* createBookCard(const DbBook& book, const CardActions& actions)
     QToolButton* menuBtn = new QToolButton(coverContainer);
     menuBtn->setCursor(Qt::PointingHandCursor);
     menuBtn->setFixedSize(28, 28);
-    menuBtn->setIcon(QIcon("image icon/menu-dots.png"));
+    menuBtn->setIcon(QIcon(":/icons/menu-dots.png"));
     menuBtn->setIconSize(QSize(16, 16));
     menuBtn->setPopupMode(QToolButton::InstantPopup);
     menuBtn->setStyleSheet(R"(
@@ -344,7 +344,7 @@ static QWidget* createListItem(const DbBook& book, const CardActions& actions)
         };
 
     QToolButton* favBtn = createMenuButton(
-        actions.favorite ? "image icon/heart_orange.png" : "image icon/heart.png",
+        actions.favorite ? ":/icons/heart_orange.png" : ":/icons/heart.png",
         actions.favorite ? "Убрать из избранного" : "Добавить в избранное");
     if (actions.favorite)
         favBtn->setStyleSheet(R"(
@@ -352,14 +352,14 @@ static QWidget* createListItem(const DbBook& book, const CardActions& actions)
             QToolButton:hover { background:#4a2e14; }
         )");
     QToolButton* doneBtn = createMenuButton(
-        actions.read ? "image icon/check-orange.png" : "image icon/check.png",
+        actions.read ? ":/icons/check-orange.png" : ":/icons/check.png",
         actions.read ? "Сбросить прогресс" : "Отметить прочитанным");
     if (actions.read)
         doneBtn->setStyleSheet(R"(
             QToolButton { background:#3a2410; border:none; border-radius:8px; }
             QToolButton:hover { background:#4a2e14; }
         )");
-    QToolButton* deleteBtn = createMenuButton("image icon/trash.png", "Удалить");
+    QToolButton* deleteBtn = createMenuButton(":/icons/trash.png", "Удалить");
 
     QObject::connect(favBtn, &QToolButton::clicked, [cb = actions.toggleFav]() { if (cb) cb(); });
     QObject::connect(doneBtn, &QToolButton::clicked, [cb = actions.markRead]() { if (cb) cb(); });
@@ -680,7 +680,7 @@ LibraryPage::LibraryPage(bool favoritesOnly, QWidget* parent)
         QLineEdit { background:#000000; border-radius:10px; padding-left:10px; color:white; font-size:14px; }
     )");
 
-    QAction* searchIcon = new QAction(QIcon("image icon/search.png"), "", search);
+    QAction* searchIcon = new QAction(QIcon(":/icons/search.png"), "", search);
     search->addAction(searchIcon, QLineEdit::LeadingPosition);
 
     connect(search, &QLineEdit::textChanged, this, [this](const QString& t) {
@@ -691,7 +691,7 @@ LibraryPage::LibraryPage(bool favoritesOnly, QWidget* parent)
     // SORT
     QPushButton* sortBtn = new QPushButton;
     sortBtn->setFixedSize(40, 40);
-    sortBtn->setIcon(QIcon("image icon/sort.png"));
+    sortBtn->setIcon(QIcon(":/icons/sort.png"));
     sortBtn->setIconSize(QSize(20, 20));
     sortBtn->setCursor(Qt::PointingHandCursor);
     sortBtn->setStyleSheet(inactiveStyle + "QPushButton::menu-indicator { image: none; width: 0; }");
@@ -719,7 +719,7 @@ LibraryPage::LibraryPage(bool favoritesOnly, QWidget* parent)
             margin-right:8px;
         }
         QMenu::indicator:checked {
-            image: url("image icon/check-orange.png");
+            image: url(":/icons/check-orange.png");
         }
         QMenu::indicator:unchecked { image: none; }
     )");
@@ -751,8 +751,8 @@ LibraryPage::LibraryPage(bool favoritesOnly, QWidget* parent)
     listBtn->setFixedSize(40, 40);
     gridBtn->setCursor(Qt::PointingHandCursor);
     listBtn->setCursor(Qt::PointingHandCursor);
-    gridBtn->setIcon(QIcon("image icon/grid.png"));
-    listBtn->setIcon(QIcon("image icon/list.png"));
+    gridBtn->setIcon(QIcon(":/icons/grid.png"));
+    listBtn->setIcon(QIcon(":/icons/list.png"));
     gridBtn->setIconSize(QSize(20, 20));
     listBtn->setIconSize(QSize(20, 20));
     gridBtn->setStyleSheet(activeStyle);

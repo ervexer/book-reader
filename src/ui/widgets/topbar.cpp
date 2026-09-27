@@ -1,4 +1,4 @@
-#include "topbar.h"
+#include "ui/widgets/topbar.h"
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QPushButton>
@@ -15,7 +15,7 @@ TopBar::TopBar(QWidget* parent)
     layout->setSpacing(5);
 
     menuBtn = new QPushButton;
-    menuBtn->setIcon(QIcon("image icon/menu.png"));
+    menuBtn->setIcon(QIcon(":/icons/menu.png"));
     menuBtn->setFixedSize(40, 40);
     menuBtn->setStyleSheet(
         "QPushButton{background:transparent;border:none;border-radius:6px;}"
@@ -34,7 +34,7 @@ TopBar::TopBar(QWidget* parent)
 
     // Кнопка "назад" — показывается только на странице информации о книге
     backBtn = new QPushButton;
-    backBtn->setIcon(QIcon("image icon/back.png"));
+    backBtn->setIcon(QIcon(":/icons/back.png"));
     backBtn->setIconSize(QSize(18, 18));
     backBtn->setFixedSize(36, 36);
     backBtn->setCursor(Qt::PointingHandCursor);
@@ -54,9 +54,9 @@ TopBar::TopBar(QWidget* parent)
     maxBtn = new QPushButton;
     closeBtn = new QPushButton;
 
-    minBtn->setIcon(QIcon("image icon/minus.png"));
-    maxBtn->setIcon(QIcon("image icon/copy.png"));
-    closeBtn->setIcon(QIcon("image icon/cross.png"));
+    minBtn->setIcon(QIcon(":/icons/minus.png"));
+    maxBtn->setIcon(QIcon(":/icons/copy.png"));
+    closeBtn->setIcon(QIcon(":/icons/cross.png"));
 
     for (auto b : { minBtn, maxBtn, closeBtn })
     {

@@ -1,0 +1,41 @@
+<RCC>
+  <qresource prefix="/icons">
+    <file alias="align-center.png">../assets/icons/align-center.png</file>
+    <file alias="align-justify.png">../assets/icons/align-justify.png</file>
+    <file alias="align-left.png">../assets/icons/align-left.png</file>
+    <file alias="back.png">../assets/icons/back.png</file>
+    <file alias="book image.png">../assets/icons/book image.png</file>
+    <file alias="bookmark (1).png">../assets/icons/bookmark (1).png</file>
+    <file alias="bookmark.png">../assets/icons/bookmark.png</file>
+    <file alias="check-orange.png">../assets/icons/check-orange.png</file>
+    <file alias="check.png">../assets/icons/check.png</file>
+    <file alias="collection_orange.png">../assets/icons/collection_orange.png</file>
+    <file alias="collection.png">../assets/icons/collection.png</file>
+    <file alias="copy.png">../assets/icons/copy.png</file>
+    <file alias="cross.png">../assets/icons/cross.png</file>
+    <file alias="grid.png">../assets/icons/grid.png</file>
+    <file alias="heart_orange.png">../assets/icons/heart_orange.png</file>
+    <file alias="heart.png">../assets/icons/heart.png</file>
+    <file alias="home_orange.png">../assets/icons/home_orange.png</file>
+    <file alias="home.png">../assets/icons/home.png</file>
+    <file alias="interrogation-orange.png">../assets/icons/interrogation-orange.png</file>
+    <file alias="interrogation.png">../assets/icons/interrogation.png</file>
+    <file alias="library_orange.png">../assets/icons/library_orange.png</file>
+    <file alias="library.png">../assets/icons/library.png</file>
+    <file alias="list.png">../assets/icons/list.png</file>
+    <file alias="menu_orange.png">../assets/icons/menu_orange.png</file>
+    <file alias="menu-dots-vertical.png">../assets/icons/menu-dots-vertical.png</file>
+    <file alias="menu-dots.png">../assets/icons/menu-dots.png</file>
+    <file alias="menu.png">../assets/icons/menu.png</file>
+    <file alias="minus.png">../assets/icons/minus.png</file>
+    <file alias="plus.png">../assets/icons/plus.png</file>
+    <file alias="profile_orange.png">../assets/icons/profile_orange.png</file>
+    <file alias="profile.png">../assets/icons/profile.png</file>
+    <file alias="search.png">../assets/icons/search.png</file>
+    <file alias="settings_orange.png">../assets/icons/settings_orange.png</file>
+    <file alias="settings.png">../assets/icons/settings.png</file>
+    <file alias="sort.png">../assets/icons/sort.png</file>
+    <file alias="symbol.png">../assets/icons/symbol.png</file>
+    <file alias="trash.png">../assets/icons/trash.png</file>
+  </qresource>
+</RCC>

@@ -1,5 +1,5 @@
-#include "readerwindow.h"
-#include "database.h"
+#include "ui/windows/readerwindow.h"
+#include "data/database.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -244,13 +244,13 @@ ReaderWindow::ReaderWindow(QWidget* parent)
         return b;
     };
 
-    helpBtn = makeIconBtn("image icon/interrogation.png");
+    helpBtn = makeIconBtn(":/icons/interrogation.png");
     helpBtn->installEventFilter(this); // смена иконки на оранжевую при наведении
-    menuBtn = makeIconBtn("image icon/menu.png");
+    menuBtn = makeIconBtn(":/icons/menu.png");
     menuBtn->installEventFilter(this);
-    settingsBtn = makeIconBtn("image icon/settings.png");
+    settingsBtn = makeIconBtn(":/icons/settings.png");
     settingsBtn->installEventFilter(this);
-    bookmarkBtn = makeIconBtn("image icon/bookmark.png");
+    bookmarkBtn = makeIconBtn(":/icons/bookmark.png");
 
     top->addWidget(helpBtn);
     top->addWidget(menuBtn);
@@ -281,9 +281,9 @@ ReaderWindow::ReaderWindow(QWidget* parent)
     minBtn = new QPushButton(topBar);
     maxBtn = new QPushButton(topBar);
     closeBtn = new QPushButton(topBar);
-    minBtn->setIcon(QIcon("image icon/minus.png"));
-    maxBtn->setIcon(QIcon("image icon/copy.png"));
-    closeBtn->setIcon(QIcon("image icon/cross.png"));
+    minBtn->setIcon(QIcon(":/icons/minus.png"));
+    maxBtn->setIcon(QIcon(":/icons/copy.png"));
+    closeBtn->setIcon(QIcon(":/icons/cross.png"));
 
     for (auto* b : { minBtn, maxBtn, closeBtn })
     {
@@ -700,12 +700,12 @@ bool ReaderWindow::eventFilter(QObject* obj, QEvent* event)
     if (obj == helpBtn)
     {
         if (event->type() == QEvent::Enter)
-            helpBtn->setIcon(QIcon("image icon/interrogation-orange.png"));
+            helpBtn->setIcon(QIcon(":/icons/interrogation-orange.png"));
         else if (event->type() == QEvent::Leave)
         {
             const bool active = leftPanel->isVisible() && panelMode == PanelMode::Help;
-            helpBtn->setIcon(QIcon(active ? "image icon/interrogation-orange.png"
-                                          : "image icon/interrogation.png"));
+            helpBtn->setIcon(QIcon(active ? ":/icons/interrogation-orange.png"
+                                          : ":/icons/interrogation.png"));
         }
     }
 
@@ -713,12 +713,12 @@ bool ReaderWindow::eventFilter(QObject* obj, QEvent* event)
     if (obj == menuBtn)
     {
         if (event->type() == QEvent::Enter)
-            menuBtn->setIcon(QIcon("image icon/menu_orange.png"));
+            menuBtn->setIcon(QIcon(":/icons/menu_orange.png"));
         else if (event->type() == QEvent::Leave)
         {
             const bool active = leftPanel->isVisible() && panelMode == PanelMode::Info;
-            menuBtn->setIcon(QIcon(active ? "image icon/menu_orange.png"
-                                          : "image icon/menu.png"));
+            menuBtn->setIcon(QIcon(active ? ":/icons/menu_orange.png"
+                                          : ":/icons/menu.png"));
         }
     }
 
@@ -726,12 +726,12 @@ bool ReaderWindow::eventFilter(QObject* obj, QEvent* event)
     if (obj == settingsBtn)
     {
         if (event->type() == QEvent::Enter)
-            settingsBtn->setIcon(QIcon("image icon/settings_orange.png"));
+            settingsBtn->setIcon(QIcon(":/icons/settings_orange.png"));
         else if (event->type() == QEvent::Leave)
         {
             settingsBtn->setIcon(QIcon(settingsPanel->isVisible()
-                                           ? "image icon/settings_orange.png"
-                                           : "image icon/settings.png"));
+                                           ? ":/icons/settings_orange.png"
+                                           : ":/icons/settings.png"));
         }
     }
 
@@ -1146,18 +1146,18 @@ void ReaderWindow::updateTabHighlight()
 
     // Иконка справки: оранжевая, пока открыта её панель.
     helpBtn->setIcon(QIcon(open && panelMode == PanelMode::Help
-        ? "image icon/interrogation-orange.png"
-        : "image icon/interrogation.png"));
+        ? ":/icons/interrogation-orange.png"
+        : ":/icons/interrogation.png"));
 
     // Иконка меню: оранжевая, пока открыта панель информации.
     menuBtn->setIcon(QIcon(open && panelMode == PanelMode::Info
-        ? "image icon/menu_orange.png"
-        : "image icon/menu.png"));
+        ? ":/icons/menu_orange.png"
+        : ":/icons/menu.png"));
 
     // Иконка настроек: оранжевая, пока открыта панель настроек.
     settingsBtn->setIcon(QIcon(settingsPanel->isVisible()
-        ? "image icon/settings_orange.png"
-        : "image icon/settings.png"));
+        ? ":/icons/settings_orange.png"
+        : ":/icons/settings.png"));
 
     tabContents->setStyleSheet(open && panelMode == PanelMode::Contents ? active : base);
     tabBookmarks->setStyleSheet(open && panelMode == PanelMode::Bookmarks ? active : base);
@@ -1304,10 +1304,10 @@ void ReaderWindow::buildSettingsPanel()
         auto* row = new QHBoxLayout;
         row->setSpacing(8);
         const QStringList icons = {
-            "image icon/align-left.png",
-            "image icon/align-center.png",
-            "image icon/symbol.png",
-            "image icon/align-justify.png"
+            ":/icons/align-left.png",
+            ":/icons/align-center.png",
+            ":/icons/symbol.png",
+            ":/icons/align-justify.png"
         };
         const QStringList tips = { "Слева", "По центру", "Справа", "По ширине" };
         for (int i = 0; i < 4; ++i)
@@ -1434,8 +1434,8 @@ void ReaderWindow::updateBookmarkButton()
 
     const QSize sz(18, 18);
     bookmarkBtn->setIcon(on
-        ? tintedIcon("image icon/bookmark.png", QColor("#ff8c00"), sz)   // оранжевая — закладка есть
-        : tintedIcon("image icon/bookmark.png", QColor("#8c847a"), sz)); // серая — закладки нет
+        ? tintedIcon(":/icons/bookmark.png", QColor("#ff8c00"), sz)   // оранжевая — закладка есть
+        : tintedIcon(":/icons/bookmark.png", QColor("#8c847a"), sz)); // серая — закладки нет
 
     bookmarkBtn->setStyleSheet(
         "QPushButton{background:transparent;border:none;border-radius:8px;}"

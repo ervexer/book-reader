@@ -1,11 +1,11 @@
-#include "mainwindow.h"
-#include "sidebar.h"
-#include "topbar.h"
-#include "homepage.h"
-#include "librarypage.h"
-#include "bookinfopage.h"
-#include "readerwindow.h"
-#include "accountpage.h"
+#include "ui/windows/mainwindow.h"
+#include "ui/widgets/sidebar.h"
+#include "ui/widgets/topbar.h"
+#include "ui/pages/homepage.h"
+#include "ui/pages/librarypage.h"
+#include "ui/pages/bookinfopage.h"
+#include "ui/windows/readerwindow.h"
+#include "ui/pages/accountpage.h"
 
 #include <QStackedWidget>
 #include <QHBoxLayout>

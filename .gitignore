@@ -14,3 +14,12 @@ qt/work.log
 
 .vs/
 book project/
+
+# CMake and deployment output
+/build/
+/deploy/
+/installer/Output/
+*/Release/
+*.vcxproj.user
+*.db-wal
+*.db-shm
